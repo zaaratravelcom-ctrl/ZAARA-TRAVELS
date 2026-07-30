@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { X, Sparkles, MapPin, Calendar, Users, Compass, DollarSign, MessageSquare, CheckCircle, RefreshCw, Send, ArrowRight } from 'lucide-react';
+import { X, Sparkles, MapPin, Calendar, Users, Compass, DollarSign, MessageSquare, CheckCircle, RefreshCw, Send, ArrowRight, Printer, FileText } from 'lucide-react';
 import { CustomItineraryResult } from '../types';
+import { downloadCustomItineraryPDF } from '../utils/pdfGenerator';
 
 interface AICustomItineraryModalProps {
   isOpen: boolean;
@@ -227,7 +228,7 @@ export const AICustomItineraryModal: React.FC<AICustomItineraryModalProps> = ({ 
               {/* Day-by-Day Cards */}
               <div className="space-y-3">
                 <h4 className="font-extrabold text-slate-900 text-sm">Day-by-Day Plan:</h4>
-                {result.days.map((day) => (
+                {(result.days || []).map((day) => (
                   <div key={day.day} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-2">
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-bold text-slate-900 text-sm flex items-center gap-2">
@@ -242,7 +243,7 @@ export const AICustomItineraryModal: React.FC<AICustomItineraryModalProps> = ({ 
                     </div>
 
                     <ul className="text-xs text-slate-600 space-y-1 pl-8 list-disc">
-                      {day.activities.map((act, i) => (
+                      {(day.activities || []).map((act, i) => (
                         <li key={i}>{act}</li>
                       ))}
                     </ul>
@@ -257,7 +258,16 @@ export const AICustomItineraryModal: React.FC<AICustomItineraryModalProps> = ({ 
               </div>
 
               {/* Action Buttons */}
-              <div className="flex flex-col sm:flex-row gap-3 pt-2">
+              <div className="flex flex-col sm:flex-row gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => downloadCustomItineraryPDF(result, duration, travelers)}
+                  className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black py-3 px-4 rounded-xl text-xs transition shadow flex items-center justify-center gap-1.5 border border-amber-300"
+                >
+                  <Printer className="w-4 h-4" />
+                  <span>Download PDF</span>
+                </button>
+
                 <button
                   onClick={() => setResult(null)}
                   className="px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl font-bold text-xs flex items-center justify-center gap-1"
@@ -272,10 +282,10 @@ export const AICustomItineraryModal: React.FC<AICustomItineraryModalProps> = ({ 
                   )}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold py-3 px-5 rounded-xl shadow-lg transition text-xs flex items-center justify-center gap-2"
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold py-3 px-4 rounded-xl shadow-lg transition text-xs flex items-center justify-center gap-1.5"
                 >
-                  <MessageSquare className="w-4 h-4 fill-current" />
-                  <span>Get Official Quote on WhatsApp (+91 99339 92786)</span>
+                  <MessageSquare className="w-4 h-4 fill-current shrink-0" />
+                  <span>Get Quote on WhatsApp (+91 99339 92786)</span>
                 </a>
               </div>
             </div>

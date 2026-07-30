@@ -34,9 +34,20 @@ export const CITY_GEO_COORDINATES: Record<string, { lat: number; lng: number; st
   'jaisalmer': { lat: 26.9157, lng: 70.9083, state: 'Rajasthan', emoji: '🐪' },
   'khajuraho': { lat: 24.8318, lng: 79.9199, state: 'Madhya Pradesh', emoji: '🏛️' },
   'orchha': { lat: 25.3512, lng: 78.6420, state: 'Madhya Pradesh', emoji: '🏰' },
+  'gwalior': { lat: 26.2183, lng: 78.1828, state: 'Madhya Pradesh', emoji: '🏰' },
   'shimla': { lat: 31.1048, lng: 77.1734, state: 'Himachal Pradesh', emoji: '🏔️' },
   'manali': { lat: 32.2432, lng: 77.1892, state: 'Himachal Pradesh', emoji: '🏔️' },
   'srinagar': { lat: 34.0837, lng: 74.7973, state: 'Jammu & Kashmir', emoji: '🛶' },
+  'mumbai': { lat: 18.9220, lng: 72.8347, state: 'Maharashtra', emoji: '🏙️' },
+  'kochi': { lat: 9.9312, lng: 76.2673, state: 'Kerala', emoji: '🌴' },
+  'munnar': { lat: 10.0889, lng: 77.0595, state: 'Kerala', emoji: '🍃' },
+  'alleppey': { lat: 9.4981, lng: 76.3388, state: 'Kerala', emoji: '🛶' },
+  'pushkar': { lat: 26.4897, lng: 74.5511, state: 'Rajasthan', emoji: '🛕' },
+  'ayodhya': { lat: 26.7922, lng: 82.1998, state: 'Uttar Pradesh', emoji: '🛕' },
+  'sarnath': { lat: 25.3762, lng: 83.0227, state: 'Uttar Pradesh', emoji: '☸️' },
+  'leh': { lat: 34.1526, lng: 77.5771, state: 'Ladakh', emoji: '🏔️' },
+  'nubra valley': { lat: 34.5800, lng: 77.5600, state: 'Ladakh', emoji: '🐪' },
+  'pangong lake': { lat: 33.7595, lng: 78.6674, state: 'Ladakh', emoji: '🏔️' },
 };
 
 // Highway segment distances
@@ -48,8 +59,20 @@ const ROUTE_SEGMENTS: Record<string, { distance: string; duration: string; highw
   'agra-fatehpur sikri': { distance: '38 km', duration: '50 Mins', highway: 'Agra-Bikaner Highway' },
   'fatehpur sikri-jaipur': { distance: '205 km', duration: '3.5 Hours', highway: 'NH 21' },
   'jaipur-ranthambore': { distance: '160 km', duration: '3.5 Hours', highway: 'Jaipur-Kota Highway' },
+  'ranthambore-jaipur': { distance: '160 km', duration: '3.5 Hours', highway: 'Jaipur-Kota Highway' },
   'delhi-haridwar': { distance: '220 km', duration: '4 Hours', highway: 'Delhi-Meerut Expressway' },
   'haridwar-rishikesh': { distance: '25 km', duration: '45 Mins', highway: 'Rishikesh Rd' },
+  'kochi-munnar': { distance: '130 km', duration: '3.5 Hours', highway: 'NH 85 Hill Highway' },
+  'munnar-alleppey': { distance: '160 km', duration: '4 Hours', highway: 'SH 40 Country Highway' },
+  'delhi-shimla': { distance: '340 km', duration: '7 Hours', highway: 'Himalayan Expressway NH5' },
+  'shimla-manali': { distance: '230 km', duration: '6.5 Hours', highway: 'NH 205 Mountain Highway' },
+  'varanasi-ayodhya': { distance: '190 km', duration: '4 Hours', highway: 'NH 330 Purvanchal Route' },
+  'varanasi-sarnath': { distance: '12 km', duration: '30 Mins', highway: 'Gaziapur Rd' },
+  'jaipur-pushkar': { distance: '145 km', duration: '2.5 Hours', highway: 'NH 48 Bypass' },
+  'leh-nubra valley': { distance: '125 km', duration: '4.5 Hours', highway: 'Khardung La Pass Route' },
+  'nubra valley-pangong lake': { distance: '160 km', duration: '5 Hours', highway: 'Shyok River Valley Route' },
+  'orchha-khajuraho': { distance: '170 km', duration: '3.5 Hours', highway: 'NH 39 Highway' },
+  'delhi-amritsar': { distance: '450 km', duration: '7.5 Hours', highway: 'NH 44 Grand Trunk Road' },
 };
 
 export const TourRouteLeafletMap: React.FC<TourRouteLeafletMapProps> = ({
@@ -288,6 +311,17 @@ export const TourRouteLeafletMap: React.FC<TourRouteLeafletMapProps> = ({
     window.open(url, '_blank', 'noopener,noreferrer');
   };
 
+  const handleResetFitBounds = () => {
+    if (mapInstanceRef.current && latLngs.length > 0) {
+      if (latLngs.length > 1) {
+        const bounds = L.latLngBounds(latLngs);
+        mapInstanceRef.current.fitBounds(bounds, { padding: [45, 45] });
+      } else {
+        mapInstanceRef.current.setView(latLngs[0], 10);
+      }
+    }
+  };
+
   return (
     <div className="bg-slate-900 text-white rounded-2xl p-4 sm:p-6 border border-slate-800 shadow-2xl space-y-5">
       {/* Top Map Header */}
@@ -295,9 +329,9 @@ export const TourRouteLeafletMap: React.FC<TourRouteLeafletMapProps> = ({
         <div>
           <div className="flex items-center gap-2 text-sky-400 font-extrabold text-xs uppercase tracking-wider">
             <Route className="w-4 h-4 text-sky-400 animate-pulse" />
-            <span>Leaflet Dynamic Tour Route Map</span>
+            <span>Interactive Leaflet Route Map</span>
             <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full text-[10px] font-bold">
-              GPS Polyline Connected
+              GPS Connected
             </span>
           </div>
           <h3 className="text-lg sm:text-xl font-black text-white mt-1">{tourTitle}</h3>
@@ -305,6 +339,16 @@ export const TourRouteLeafletMap: React.FC<TourRouteLeafletMapProps> = ({
 
         {/* Map Actions */}
         <div className="flex items-center gap-2 flex-wrap self-start sm:self-auto">
+          <button
+            type="button"
+            onClick={handleResetFitBounds}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl font-bold text-xs bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 transition"
+            title="Reset view to fit all route cities"
+          >
+            <Compass className="w-3.5 h-3.5 text-sky-400" />
+            <span>Fit Route</span>
+          </button>
+
           <button
             type="button"
             onClick={() => setIsPlaying(!isPlaying)}
@@ -324,7 +368,7 @@ export const TourRouteLeafletMap: React.FC<TourRouteLeafletMapProps> = ({
             className="bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 text-white font-extrabold text-xs px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 shadow"
           >
             <ExternalLink className="w-3.5 h-3.5" />
-            <span>Open Route in Google Maps</span>
+            <span>Open in Google Maps</span>
           </button>
         </div>
       </div>

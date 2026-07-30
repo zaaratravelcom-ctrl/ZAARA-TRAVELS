@@ -144,8 +144,16 @@ Respond strictly in JSON format with the following structure:
 
       let parsedData;
       try {
-        parsedData = JSON.parse(response?.text || '{}');
+        let rawText = response?.text || '';
+        rawText = rawText.replace(/```json\s*/gi, '').replace(/```/g, '').trim();
+        parsedData = JSON.parse(rawText || '{}');
       } catch (e) {
+        console.warn('Failed to parse Gemini JSON output, using curated fallback:', e);
+        parsedData = getCuratedItineraryFallback();
+      }
+
+      if (!parsedData || !Array.isArray(parsedData.days) || parsedData.days.length === 0) {
+        console.warn('Gemini response missing valid days array, using curated fallback');
         parsedData = getCuratedItineraryFallback();
       }
 

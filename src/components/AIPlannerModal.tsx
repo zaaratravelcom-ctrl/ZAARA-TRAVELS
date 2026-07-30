@@ -232,7 +232,7 @@ Hello Zaara Travels, I generated this custom travel plan on your website. Please
               {/* Day-by-Day List */}
               <div className="space-y-3">
                 <h4 className="font-bold text-slate-900 text-sm">Day-by-Day Travel Plan</h4>
-                {aiResult.days.map((d) => (
+                {(aiResult.days || []).map((d) => (
                   <div key={d.day} className="border border-slate-200 rounded-xl p-4 bg-slate-50/50 space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-bold bg-sky-600 text-white px-2 py-0.5 rounded">
@@ -242,7 +242,7 @@ Hello Zaara Travels, I generated this custom travel plan on your website. Please
                     </div>
                     <h5 className="font-bold text-slate-900 text-sm">{d.title}</h5>
                     <ul className="space-y-1 text-xs text-slate-700">
-                      {d.activities.map((act, i) => (
+                      {(d.activities || []).map((act, i) => (
                         <li key={i} className="flex items-start gap-1.5">
                           <CheckCircle className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
                           <span>{act}</span>
@@ -262,7 +262,7 @@ Hello Zaara Travels, I generated this custom travel plan on your website. Please
               <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
                 <h4 className="font-bold text-slate-900 text-xs mb-2">Included In This Custom Quotation</h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-700">
-                  {aiResult.includedServices.map((srv, idx) => (
+                  {(aiResult.includedServices || []).map((srv, idx) => (
                     <div key={idx} className="flex items-center gap-1.5">
                       <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                       <span>{srv}</span>

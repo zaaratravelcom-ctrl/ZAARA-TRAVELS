@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { TourPackage, VehicleOption } from '../types';
-import { X, Calendar, Users, Car, CheckCircle2, XCircle, ShieldCheck, CreditCard, MessageSquare, FileText, Star, Sparkles, MapPin, Building, ArrowRight, Check, User, ArrowLeft, Clock, Search, Navigation, Crosshair, Plane, Train, Hotel, Locate, Compass, Mail } from 'lucide-react';
+import { X, Calendar, Users, Car, CheckCircle2, XCircle, ShieldCheck, CreditCard, MessageSquare, FileText, Star, Sparkles, MapPin, Building, ArrowRight, Check, User, ArrowLeft, Clock, Search, Navigation, Crosshair, Plane, Train, Hotel, Locate, Compass, Mail, Printer, Download } from 'lucide-react';
 import { VEHICLES_DATA } from '../data/vehiclesData';
 import { openPrintableVoucher } from '../utils/voucherGenerator';
 import { sendBookingConfirmationEmail } from '../utils/emailService';
-import { downloadBookingPDF } from '../utils/pdfGenerator';
+import { downloadBookingPDF, downloadTourItineraryPDF } from '../utils/pdfGenerator';
 import { CurrencyCode, formatConvertedPrice, FALLBACK_RATES_FROM_USD } from '../utils/currencyConverter';
 import { LiveRouteMap } from './LiveRouteMap';
 import { TourRouteLeafletMap } from './TourRouteLeafletMap';
@@ -43,6 +43,7 @@ export const TourDetailsModal: React.FC<TourDetailsModalProps> = ({
   if (!tour) return null;
 
   const [activeSubTab, setActiveSubTab] = useState<'itinerary' | 'map' | 'book'>('itinerary');
+  const [itineraryMapType, setItineraryMapType] = useState<'leaflet' | 'schematic'>('leaflet');
   const [bookingStep, setBookingStep] = useState<number>(1);
   
   // Booking Form State
@@ -350,12 +351,25 @@ GSTIN: 19ACUPH2897Q2ZA`;
             </div>
           </div>
 
-          <button
-            onClick={onClose}
-            className="p-2 rounded-full bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 transition focus:outline-none"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => downloadTourItineraryPDF(tour, currency, rates)}
+              className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs px-3.5 py-2 rounded-xl transition shadow flex items-center gap-1.5 border border-amber-300"
+              title="Download official printable PDF itinerary"
+            >
+              <Printer className="w-4 h-4" />
+              <span className="hidden sm:inline">Print PDF Itinerary</span>
+            </button>
+
+            <button
+              onClick={onClose}
+              className="p-2 rounded-full bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 transition focus:outline-none"
+              title="Close modal"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Tab Selection */}
@@ -401,12 +415,75 @@ GSTIN: 19ACUPH2897Q2ZA`;
         <div className="p-4 sm:p-6 overflow-y-auto space-y-6 flex-1">
           {activeSubTab === 'itinerary' && (
             <div className="space-y-6">
-              {/* Live Interactive Route Map */}
-              <LiveRouteMap
-                cities={tour.cities}
-                itinerary={tour.itinerary}
-                tourTitle={tour.title}
-              />
+              {/* Interactive Route Map Selection Header */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <MapPin className="w-4 h-4 text-sky-600" />
+                    <h3 className="font-bold text-slate-900 text-sm">Interactive Tour Route Visualizer</h3>
+                  </div>
+                  <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setItineraryMapType('leaflet')}
+                      className={`px-3 py-1 rounded-lg font-bold transition flex items-center gap-1.5 ${
+                        itineraryMapType === 'leaflet'
+                          ? 'bg-sky-600 text-white shadow'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      <Compass className="w-3.5 h-3.5" />
+                      <span>Leaflet GIS Map</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setItineraryMapType('schematic')}
+                      className={`px-3 py-1 rounded-lg font-bold transition ${
+                        itineraryMapType === 'schematic'
+                          ? 'bg-sky-600 text-white shadow'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      Schematic View
+                    </button>
+                  </div>
+                </div>
+
+                {itineraryMapType === 'leaflet' ? (
+                  <TourRouteLeafletMap
+                    cities={tour.cities}
+                    itinerary={tour.itinerary}
+                    tourTitle={tour.title}
+                  />
+                ) : (
+                  <LiveRouteMap
+                    cities={tour.cities}
+                    itinerary={tour.itinerary}
+                    tourTitle={tour.title}
+                  />
+                )}
+              </div>
+
+              {/* Printable PDF Banner Callout */}
+              <div className="bg-gradient-to-r from-slate-900 via-sky-950 to-slate-900 border border-slate-800 text-white rounded-xl p-4 flex items-center justify-between flex-wrap gap-3 shadow-md">
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-amber-400 uppercase tracking-wider">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Official Printable PDF Itinerary</span>
+                  </div>
+                  <p className="text-xs text-slate-300">
+                    Download a formatted PDF travel itinerary with full route details, inclusions & 24/7 helpline.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => downloadTourItineraryPDF(tour, currency, rates)}
+                  className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black px-4 py-2.5 rounded-xl text-xs transition shadow-md flex items-center gap-2 border border-amber-300 shrink-0"
+                >
+                  <FileText className="w-4 h-4" />
+                  <span>Download PDF Itinerary</span>
+                </button>
+              </div>
 
               {/* Overview Box */}
               <div className="bg-sky-50/50 border border-sky-100 rounded-xl p-4">
@@ -475,7 +552,15 @@ GSTIN: 19ACUPH2897Q2ZA`;
                 </div>
               </div>
 
-              <div className="pt-2 text-center">
+              <div className="pt-2 text-center flex items-center justify-center gap-3 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => downloadTourItineraryPDF(tour, currency, rates)}
+                  className="bg-slate-800 hover:bg-slate-700 text-slate-100 font-extrabold px-6 py-3 rounded-xl shadow-md transition text-xs inline-flex items-center gap-2 border border-slate-700"
+                >
+                  <Printer className="w-4 h-4 text-sky-400" />
+                  <span>Download PDF Itinerary</span>
+                </button>
                 <button
                   type="button"
                   onClick={() => setActiveSubTab('book')}
