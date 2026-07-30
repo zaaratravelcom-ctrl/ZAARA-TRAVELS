@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Phone, Mail, MapPin, Globe, ShieldCheck, MessageSquare, Send, CheckCircle2, UserCheck } from 'lucide-react';
+import { ScrollFadeIn } from './ScrollFadeIn';
 
 export const ContactView: React.FC = () => {
   const [name, setName] = useState('');
@@ -30,19 +31,21 @@ Hello Zaara Travels, please contact me with best price quote!`;
   return (
     <div className="max-w-6xl mx-auto px-4 py-8 space-y-8">
       {/* Page Title */}
-      <div className="bg-slate-900 text-white rounded-2xl p-6 sm:p-10 text-center space-y-3">
-        <span className="text-xs font-bold text-amber-400 uppercase tracking-widest bg-slate-800 px-3 py-1 rounded-full border border-slate-700">
-          Govt Registered Operator • GSTIN: 19ACUPH2897Q2ZA
-        </span>
-        <h1 className="text-3xl sm:text-4xl font-black text-white">Contact Zaara Travels</h1>
-        <p className="text-sm text-slate-300 max-w-xl mx-auto leading-relaxed">
-          Reach out directly to <strong>Zaara Travels</strong> for immediate assistance, custom quotations, and private tour arrangements.
-        </p>
-      </div>
+      <ScrollFadeIn direction="down">
+        <div className="bg-slate-900 text-white rounded-2xl p-6 sm:p-10 text-center space-y-3 shadow-lg">
+          <span className="text-xs font-bold text-amber-400 uppercase tracking-widest bg-slate-800 px-3 py-1 rounded-full border border-slate-700">
+            Govt Registered Operator • GSTIN: 19ACUPH2897Q2ZA
+          </span>
+          <h1 className="text-3xl sm:text-4xl font-black text-white">Contact Zaara Travels</h1>
+          <p className="text-sm text-slate-300 max-w-xl mx-auto leading-relaxed">
+            Reach out directly to <strong>Zaara Travels</strong> for immediate assistance, custom quotations, and private tour arrangements.
+          </p>
+        </div>
+      </ScrollFadeIn>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Left Column: Official Contact Card */}
-        <div className="lg:col-span-1 space-y-6">
+        <ScrollFadeIn direction="right" className="lg:col-span-1 space-y-6">
           <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-6">
             <div className="flex items-center gap-3 pb-4 border-b border-slate-100">
               <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-sky-600 to-amber-500 text-slate-950 font-black text-2xl flex items-center justify-center shadow-md">
@@ -62,6 +65,18 @@ Hello Zaara Travels, please contact me with best price quote!`;
                 <div>
                   <span className="text-slate-400 block font-semibold">Official Travel Desk</span>
                   <strong className="text-slate-900 text-sm">Zaara Travels</strong>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
+                  <MapPin className="w-4 h-4" />
+                </div>
+                <div>
+                  <span className="text-slate-400 block font-semibold">Head Office Address</span>
+                  <strong className="text-slate-900 font-medium text-xs block leading-snug">
+                    Address: Rani Garden, Shastri Nagar, Geeta Colony, New Delhi, Delhi 110031.
+                  </strong>
                 </div>
               </div>
 
@@ -148,10 +163,10 @@ Hello Zaara Travels, please contact me with best price quote!`;
               </a>
             </div>
           </div>
-        </div>
+        </ScrollFadeIn>
 
         {/* Right Column: Inquiry Form */}
-        <div className="lg:col-span-2">
+        <ScrollFadeIn direction="left" delay={0.2} className="lg:col-span-2">
           <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-sm space-y-6">
             <div>
               <h3 className="text-xl font-bold text-slate-900">Send a Tour Inquiry</h3>
@@ -250,7 +265,7 @@ Hello Zaara Travels, please contact me with best price quote!`;
               </div>
             )}
           </div>
-        </div>
+        </ScrollFadeIn>
       </div>
     </div>
   );

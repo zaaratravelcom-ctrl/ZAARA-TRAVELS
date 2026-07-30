@@ -102,7 +102,7 @@ export const TESTIMONIALS_DATA: Testimonial[] = [
     tourTaken: '6-Day Golden Triangle with Ranthambore',
     rating: 5,
     date: 'February 2026',
-    comment: 'Jahangir Khan and his team at Zaara Travels provided exceptional service! Our driver Mr. Rajesh was punctual, friendly, and navigated India streets like a pro. The Taj Mahal sunrise tour and tiger safari in Ranthambore were unforgettable moments of our life!',
+    comment: 'The team at Zaara Travels provided exceptional service! Our driver Mr. Rajesh was punctual, friendly, and navigated India streets like a pro. The Taj Mahal sunrise tour and tiger safari in Ranthambore were unforgettable moments of our life!',
   },
   {
     id: 'test-2',
@@ -112,7 +112,7 @@ export const TESTIMONIALS_DATA: Testimonial[] = [
     tourTaken: 'Taj Mahal Sunrise Day Tour from Delhi',
     rating: 5,
     date: 'January 2026',
-    comment: 'Booked the Taj Mahal sunrise tour via WhatsApp with Jahangir. The Toyota Innova arrived at my hotel at 3 AM sharp. Guide in Agra was so knowledgeable and took amazing photos of me without crowd in background. Highly recommend Zaara Travels!',
+    comment: 'Booked the Taj Mahal sunrise tour via WhatsApp with Zaara Travels. The Toyota Innova arrived at my hotel at 3 AM sharp. Guide in Agra was so knowledgeable and took amazing photos of me without crowd in background. Highly recommend Zaara Travels!',
   },
   {
     id: 'test-3',

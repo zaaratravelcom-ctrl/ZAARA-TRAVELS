@@ -20,7 +20,7 @@ export const VehicleFleetSection: React.FC<VehicleFleetSectionProps> = ({ curren
             Private Car & Driver Services across India
           </h2>
           <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
-            All Zaara Travels vehicles feature dual-zone air-conditioning, clean interiors, GPS tracking, commercial permits, and uniform drivers managed directly by Managing Director Jahangir Khan.
+            All Zaara Travels vehicles feature dual-zone air-conditioning, clean interiors, GPS tracking, commercial permits, and uniform drivers managed directly by Zaara Travels.
           </p>
         </div>
 

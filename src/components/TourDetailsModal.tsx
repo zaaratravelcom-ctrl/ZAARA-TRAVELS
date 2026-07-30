@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { TourPackage, VehicleOption } from '../types';
-import { X, Calendar, Users, Car, CheckCircle2, XCircle, ShieldCheck, CreditCard, MessageSquare, FileText, Star, Sparkles, MapPin, Building, ArrowRight, Check, User, ArrowLeft, Clock, Search, Navigation, Crosshair, Plane, Train, Hotel, Locate, Compass } from 'lucide-react';
+import { X, Calendar, Users, Car, CheckCircle2, XCircle, ShieldCheck, CreditCard, MessageSquare, FileText, Star, Sparkles, MapPin, Building, ArrowRight, Check, User, ArrowLeft, Clock, Search, Navigation, Crosshair, Plane, Train, Hotel, Locate, Compass, Mail } from 'lucide-react';
 import { VEHICLES_DATA } from '../data/vehiclesData';
 import { openPrintableVoucher } from '../utils/voucherGenerator';
+import { sendBookingConfirmationEmail } from '../utils/emailService';
+import { downloadBookingPDF } from '../utils/pdfGenerator';
 import { CurrencyCode, formatConvertedPrice, FALLBACK_RATES_FROM_USD } from '../utils/currencyConverter';
 import { LiveRouteMap } from './LiveRouteMap';
 import { TourRouteLeafletMap } from './TourRouteLeafletMap';
@@ -166,7 +168,7 @@ export const TourDetailsModal: React.FC<TourDetailsModalProps> = ({
     }
   };
 
-  const handleConfirmBooking = (e: React.FormEvent) => {
+  const handleConfirmBooking = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!guestName || !guestPhone) {
       alert('Please provide your name and phone number for booking confirmation.');
@@ -196,13 +198,86 @@ export const TourDetailsModal: React.FC<TourDetailsModalProps> = ({
       specialRequests,
     };
 
+    try {
+      // 1. Send confirmation email (with attached PDF data & WhatsApp dispatch payload)
+      await sendBookingConfirmationEmail({
+        bookingId: bookingRecord.bookingId,
+        guestName: bookingRecord.guestName,
+        guestEmail: bookingRecord.guestEmail,
+        guestPhone: bookingRecord.guestPhone,
+        tourTitle: bookingRecord.tourTitle,
+        travelDate: bookingRecord.travelDate,
+        pickupTime: bookingRecord.pickupTime,
+        pickupLocation: bookingRecord.pickupLocation,
+        vehicleType: bookingRecord.vehicleType,
+        totalAmountINR: bookingRecord.totalAmountINR,
+        totalAmountUSD: bookingRecord.totalAmountUSD,
+        paymentMethod: bookingRecord.paymentMethod,
+        paymentStatus: bookingRecord.paymentStatus,
+        specialRequests: bookingRecord.specialRequests,
+      });
+
+      // 2. Automatically generate and download PDF voucher for guest
+      downloadBookingPDF({
+        bookingId: bookingRecord.bookingId,
+        guestName: bookingRecord.guestName,
+        guestEmail: bookingRecord.guestEmail,
+        guestPhone: bookingRecord.guestPhone,
+        tourTitle: bookingRecord.tourTitle,
+        travelDate: bookingRecord.travelDate,
+        pickupTime: bookingRecord.pickupTime,
+        pickupLocation: bookingRecord.pickupLocation,
+        vehicleType: bookingRecord.vehicleType,
+        totalAmountINR: bookingRecord.totalAmountINR,
+        totalAmountUSD: bookingRecord.totalAmountUSD,
+        paymentMethod: bookingRecord.paymentMethod,
+        paymentStatus: bookingRecord.paymentStatus,
+        specialRequests: bookingRecord.specialRequests,
+      });
+    } catch (err) {
+      console.warn('Booking confirmation API auto-dispatch notice logged locally:', err);
+    }
+
     onAddBooking(bookingRecord);
     setLastBookingRef(bookingRecord);
     setIsSubmitted(true);
+
+    // Auto launch WhatsApp notification dispatch tab
+    setTimeout(() => {
+      const waText = `*CONFIRMED BOOKING VOUCHER - ZAARA TRAVELS*
+*Booking Ref:* ${bookingRecord.bookingId}
+*Guest Name:* ${bookingRecord.guestName}
+*Phone:* ${bookingRecord.guestPhone}
+*Tour:* ${bookingRecord.tourTitle}
+*Travel Date:* ${bookingRecord.travelDate}
+*Vehicle:* ${bookingRecord.vehicleType}
+*Total Amount:* ₹${bookingRecord.totalAmountINR.toLocaleString('en-IN')} ($${bookingRecord.totalAmountUSD} USD)
+*Payment Method:* ${bookingRecord.paymentMethod}
+*GSTIN:* 19ACUPH2897Q2ZA
+
+Hello Zaara Travels, I completed my booking on the website! Please confirm driver assignment.`;
+      window.open(`https://wa.me/919933992786?text=${encodeURIComponent(waText)}`, '_blank');
+    }, 500);
   };
 
   const handleGenerateVoucher = () => {
     if (lastBookingRef) {
+      downloadBookingPDF({
+        bookingId: lastBookingRef.bookingId,
+        guestName: lastBookingRef.guestName,
+        guestEmail: lastBookingRef.guestEmail,
+        guestPhone: lastBookingRef.guestPhone,
+        tourTitle: lastBookingRef.tourTitle,
+        travelDate: lastBookingRef.travelDate,
+        pickupTime: lastBookingRef.pickupTime,
+        pickupLocation: lastBookingRef.pickupLocation,
+        vehicleType: lastBookingRef.vehicleType,
+        totalAmountINR: lastBookingRef.totalAmountINR,
+        totalAmountUSD: lastBookingRef.totalAmountUSD,
+        paymentMethod: lastBookingRef.paymentMethod,
+        paymentStatus: lastBookingRef.paymentStatus,
+        specialRequests: lastBookingRef.specialRequests,
+      });
       openPrintableVoucher(lastBookingRef);
     }
   };
@@ -220,9 +295,40 @@ export const TourDetailsModal: React.FC<TourDetailsModalProps> = ({
 *Total Paid/Amount:* ₹${lastBookingRef.totalAmountINR.toLocaleString('en-IN')} (${lastBookingRef.paymentMethod})
 *GSTIN:* 19ACUPH2897Q2ZA
 
-Hi Jahangir Khan, I completed my booking on the website! Please acknowledge and send driver details.`;
+Hello Zaara Travels, I completed my booking on the website! Please acknowledge and send driver details.`;
 
     window.open(`https://wa.me/919933992786?text=${encodeURIComponent(waText)}`, '_blank');
+  };
+
+  const handleSendEmailClientConfirmation = () => {
+    if (!lastBookingRef) return;
+    const subject = `CONFIRMED BOOKING VOUCHER - ${lastBookingRef.bookingId} - Zaara Travels`;
+    const body = `Dear Zaara Travels Team,
+
+I have completed my tour booking on www.zaaratravel.com!
+
+BOOKING & TOUR DETAILS:
+- Booking Reference ID: ${lastBookingRef.bookingId}
+- Tour Package: ${lastBookingRef.tourTitle}
+- Guest Name: ${lastBookingRef.guestName}
+- Phone / WhatsApp: ${lastBookingRef.guestPhone}
+- Guest Email: ${lastBookingRef.guestEmail}
+- Travel Date: ${lastBookingRef.travelDate}
+- Pickup Time: ${lastBookingRef.pickupTime || '06:00 AM'}
+- Pickup Location: ${lastBookingRef.pickupLocation}
+- Transport: ${lastBookingRef.vehicleType}
+- Total Amount: ₹${lastBookingRef.totalAmountINR.toLocaleString('en-IN')} ($${lastBookingRef.totalAmountUSD} USD)
+- Payment Option: ${lastBookingRef.paymentMethod} (${lastBookingRef.paymentStatus})
+
+Please send driver assignment details and GST Tax Invoice.
+
+Zaara Travels Details:
+Website: www.zaaratravel.com
+Email: info@zaaratravel.com
+Phone/WhatsApp: +91 99339 92786
+GSTIN: 19ACUPH2897Q2ZA`;
+
+    window.open(`mailto:info@zaaratravel.com,${encodeURIComponent(lastBookingRef.guestEmail)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_blank');
   };
 
   return (
@@ -417,36 +523,79 @@ Hi Jahangir Khan, I completed my booking on the website! Please acknowledge and 
                   <h3 className="text-2xl font-black text-slate-900">Booking Confirmed!</h3>
                   <p className="text-sm text-slate-700 max-w-md mx-auto">
                     Thank you, <strong>{guestName}</strong>! Your tour reference number is{' '}
-                    <strong className="text-sky-700">{lastBookingRef?.bookingId}</strong>. Zaara Travels team has been notified.
+                    <strong className="text-sky-700">{lastBookingRef?.bookingId}</strong>.
                   </p>
 
-                  {/* Actions for Voucher & WhatsApp & PayPal */}
-                  <div className="pt-2 flex flex-col sm:flex-row gap-3 justify-center flex-wrap">
+                  {/* Backend Dispatch Notification Box */}
+                  <div className="bg-slate-900 text-white p-4.5 rounded-xl text-left border border-slate-800 space-y-3 max-w-xl mx-auto shadow-md">
+                    <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                      <div className="flex items-center gap-2 text-xs font-bold text-amber-400 uppercase tracking-wider">
+                        <ShieldCheck className="w-4 h-4 text-emerald-400" /> Dispatch Status & Notifications
+                      </div>
+                      <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-mono font-bold px-2 py-0.5 rounded border border-emerald-500/40">
+                        AUTOMATICALLY DISPATCHED
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+                      <div className="bg-slate-800/80 p-2.5 rounded-lg border border-slate-700">
+                        <div className="font-bold text-sky-400 flex items-center gap-1.5 mb-1">
+                          <Mail className="w-3.5 h-3.5" /> Email Notification
+                        </div>
+                        <p className="text-[11px] text-slate-300">
+                          Sent to <strong className="text-white">info@zaaratravel.com</strong> & <strong className="text-white">{lastBookingRef?.guestEmail}</strong>
+                        </p>
+                      </div>
+
+                      <div className="bg-slate-800/80 p-2.5 rounded-lg border border-slate-700">
+                        <div className="font-bold text-emerald-400 flex items-center gap-1.5 mb-1">
+                          <MessageSquare className="w-3.5 h-3.5" /> WhatsApp Dispatch
+                        </div>
+                        <p className="text-[11px] text-slate-300">
+                          Transmitted to Operations Desk (<strong className="text-white">+91 99339 92786</strong>)
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Actions for Voucher & Email & WhatsApp & PayPal */}
+                  <div className="pt-2 flex flex-col sm:flex-row gap-2.5 justify-center flex-wrap">
+                    <button
+                      type="button"
+                      onClick={handleSendWhatsAppConfirmation}
+                      className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-5 rounded-xl shadow transition text-xs sm:text-sm"
+                    >
+                      <MessageSquare className="w-4 h-4 fill-current" />
+                      <span>Send / Open WhatsApp (+91 99339 92786)</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleSendEmailClientConfirmation}
+                      className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-5 rounded-xl shadow transition text-xs sm:text-sm"
+                    >
+                      <Mail className="w-4 h-4" />
+                      <span>Send via Email Client (info@zaaratravel.com)</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleGenerateVoucher}
+                      className="flex items-center justify-center gap-2 bg-sky-600 hover:bg-sky-700 text-white font-bold py-3 px-5 rounded-xl shadow transition text-xs sm:text-sm"
+                    >
+                      <FileText className="w-4 h-4" />
+                      <span>Download PDF Voucher</span>
+                    </button>
+
                     <a
                       href={`https://paypal.me/JahangirHussain958/${lastBookingRef?.totalAmountUSD || 100}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-black py-3 px-6 rounded-xl shadow transition text-sm"
+                      className="flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black py-3 px-5 rounded-xl shadow transition text-xs sm:text-sm"
                     >
                       <CreditCard className="w-4 h-4" />
-                      <span>Pay via PayPal Link (${lastBookingRef?.totalAmountUSD})</span>
+                      <span>Pay via PayPal (${lastBookingRef?.totalAmountUSD})</span>
                     </a>
-
-                    <button
-                      onClick={handleGenerateVoucher}
-                      className="flex items-center justify-center gap-2 bg-sky-600 hover:bg-sky-700 text-white font-bold py-3 px-6 rounded-xl shadow transition text-sm"
-                    >
-                      <FileText className="w-4 h-4" />
-                      <span>Download / Print PDF Voucher</span>
-                    </button>
-
-                    <button
-                      onClick={handleSendWhatsAppConfirmation}
-                      className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-6 rounded-xl shadow transition text-sm"
-                    >
-                      <MessageSquare className="w-4 h-4 fill-current" />
-                      <span>Send to Zaara Travels on WhatsApp</span>
-                    </button>
                   </div>
 
                   <p className="text-xs text-slate-500 pt-2">

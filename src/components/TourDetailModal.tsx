@@ -161,7 +161,7 @@ export const TourDetailModal: React.FC<TourDetailModalProps> = ({
                 Booking Confirmed! (Ref: {bookingSuccess.bookingId})
               </h3>
               <p className="text-sm text-slate-600">
-                Thank you <strong>{bookingSuccess.guestName}</strong>. Your official Zaara Travels booking voucher has been generated. Managing Director Jahangir Khan has been notified.
+                Thank you <strong>{bookingSuccess.guestName}</strong>. Your official Zaara Travels booking voucher has been generated and transmitted to our reservation team.
               </p>
             </div>
 
@@ -216,7 +216,7 @@ export const TourDetailModal: React.FC<TourDetailModalProps> = ({
 
               <a
                 href={`https://wa.me/919933992786?text=${encodeURIComponent(
-                  `Hello Jahangir Khan, I have booked ${tour.title} (Booking Ref: ${bookingSuccess.bookingId}) for ${bookingSuccess.travelDate}. Payment option selected: ${bookingSuccess.paymentMethod}. Direct PayPal link: https://paypal.me/zaaratravel/${bookingSuccess.totalAmountUSD}`
+                  `Hello Zaara Travels, I have booked ${tour.title} (Booking Ref: ${bookingSuccess.bookingId}) for ${bookingSuccess.travelDate}. Payment option selected: ${bookingSuccess.paymentMethod}. Direct PayPal link: https://paypal.me/zaaratravel/${bookingSuccess.totalAmountUSD}`
                 )}`}
                 target="_blank"
                 rel="noopener noreferrer"

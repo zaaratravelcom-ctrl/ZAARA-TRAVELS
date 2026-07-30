@@ -5,6 +5,7 @@ export interface TourPackage {
   category: 'golden-triangle' | 'safari' | 'day-tour' | 'sightseeing' | 'spiritual';
   cities: string[];
   image: string;
+  gallery?: string[];
   priceFromINR: number;
   priceFromUSD: number;
   rating: number;

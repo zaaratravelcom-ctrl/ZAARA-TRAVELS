@@ -207,6 +207,14 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab, onOpenAIPlanner })
             <h5 className="text-white font-bold text-sm mb-4 tracking-wider uppercase">Contact Office</h5>
             <div className="space-y-3 text-xs text-slate-300">
               <div className="flex items-start gap-2.5">
+                <MapPin className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                <div>
+                  <div className="font-semibold text-white">Head Office Address:</div>
+                  <span className="text-slate-400">Address: Rani Garden, Shastri Nagar, Geeta Colony, New Delhi, Delhi 110031.</span>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-2.5">
                 <Phone className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
                 <div>
                   <div className="font-semibold text-white">Direct / WhatsApp:</div>
@@ -298,7 +306,7 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab, onOpenAIPlanner })
         {/* Bottom Rights & GST */}
         <div className="pt-8 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-slate-500">
           <div>
-            © {new Date().getFullYear()} <strong>Zaara Travels</strong>. All rights reserved.
+            © 2022 <strong>Zaara Travels</strong>. All rights reserved.
           </div>
           <div className="flex items-center gap-3 flex-wrap">
             <a

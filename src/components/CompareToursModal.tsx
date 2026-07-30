@@ -336,7 +336,7 @@ export const CompareToursModal: React.FC<CompareToursModalProps> = ({
         {/* Modal Footer Actions */}
         <div className="p-4 bg-slate-100 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
           <div className="text-xs text-slate-600 font-medium">
-            Need help deciding? Contact MD Jahangir Khan on WhatsApp (+91 98372 08973) for custom advice.
+            Need help deciding? Contact Zaara Travels on WhatsApp (+91 99339 92786) for custom advice.
           </div>
 
           <div className="flex items-center gap-3 w-full sm:w-auto">

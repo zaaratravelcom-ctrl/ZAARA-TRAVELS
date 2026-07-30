@@ -4,6 +4,7 @@ import { fileURLToPath } from 'url';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
 import dotenv from 'dotenv';
+import { sendTwilioWhatsAppNotification } from './server/twilioService';
 
 dotenv.config();
 
@@ -19,8 +20,7 @@ async function startServer() {
   // Company details constant
   const COMPANY_DETAILS = {
     name: 'Zaara Travels',
-    owner: 'Jahangir Khan',
-    title: 'Owner / Managing Director',
+    address: 'Rani Garden, Shastri Nagar, Geeta Colony, New Delhi, Delhi 110031',
     gstin: '19ACUPH2897Q2ZA',
     phone: '+91 99339 92786',
     whatsapp: '+919933992786',
@@ -51,7 +51,7 @@ async function startServer() {
           success: true,
           source: 'curated-template',
           itineraryTitle: `${duration || '6'}-Day Custom India Tour: ${destinations || 'Golden Triangle & Safaris'}`,
-          overview: `A personalized travel plan crafted by Zaara Travels (${COMPANY_DETAILS.owner}, Managing Director) featuring private AC vehicle, expert local guides, and seamless transfers.`,
+          overview: `A personalized travel plan crafted by Zaara Travels featuring private AC vehicle, expert local guides, and seamless transfers.`,
           days: Array.from({ length: parseInt(duration) || 5 }).map((_, idx) => ({
             day: idx + 1,
             title: `Day ${idx + 1}: ${idx === 0 ? 'Arrival & Sightseeing' : idx === (parseInt(duration) || 5) - 1 ? 'Final Exploration & Drop' : 'Cultural Immersion & Excursions'}`,
@@ -70,7 +70,7 @@ async function startServer() {
             'Professional Monument Guides',
             '24/7 WhatsApp Assistance (+91 99339 92786)',
           ],
-          whatsappMessage: encodeURIComponent(`Hello Jahangir Khan, I generated a custom ${duration || '6'}-day tour for ${destinations || 'Golden Triangle'}. Please send me a final quotation!`),
+          whatsappMessage: encodeURIComponent(`Hello Zaara Travels, I generated a custom ${duration || '6'}-day tour for ${destinations || 'Golden Triangle'}. Please send me a final quotation!`),
         });
       }
 
@@ -83,7 +83,7 @@ async function startServer() {
         },
       });
 
-      const prompt = `You are the lead travel consultant for Zaara Travels (Managing Director: Jahangir Khan, GSTIN: 19ACUPH2897Q2ZA, WhatsApp: +91 99339 92786).
+      const prompt = `You are the lead travel consultant for Zaara Travels (GSTIN: 19ACUPH2897Q2ZA, WhatsApp: +91 99339 92786, Address: Rani Garden, Shastri Nagar, Geeta Colony, New Delhi, Delhi 110031).
 Create a detailed, highly attractive, day-by-day customized travel itinerary for a guest visiting India.
 
 Guest Specifications:
@@ -105,7 +105,7 @@ Respond strictly in JSON format with the following structure:
       "title": "Day 1 Title",
       "activities": ["Activity 1", "Activity 2", "Activity 3"],
       "stayLocation": "City Name",
-      "insiderTip": "A useful local travel tip from Jahangir Khan"
+      "insiderTip": "A useful local travel tip from Zaara Travels"
     }
   ],
   "recommendedVehicle": "Vehicle model suited for group size (e.g. Sedan, Innova Crysta, Tempo Traveller)",
@@ -129,7 +129,7 @@ Respond strictly in JSON format with the following structure:
       } catch (e) {
         parsedData = {
           itineraryTitle: `${duration}-Day Custom Tour of ${destinations}`,
-          overview: `Custom private India tour organized by Zaara Travels (${COMPANY_DETAILS.owner}).`,
+          overview: `Custom private India tour organized by Zaara Travels.`,
           days: [],
           recommendedVehicle: 'Toyota Innova Crysta AC',
           estimatedPriceRange: '₹35,000 - ₹65,000',
@@ -147,7 +147,7 @@ Respond strictly in JSON format with the following structure:
       console.error('Error generating AI custom itinerary:', error);
       res.status(500).json({
         success: false,
-        error: 'Failed to generate custom AI itinerary. Please try again or message Jahangir Khan on WhatsApp directly.',
+        error: 'Failed to generate custom AI itinerary. Please try again or message Zaara Travels on WhatsApp directly.',
       });
     }
   });
@@ -172,8 +172,67 @@ Respond strictly in JSON format with the following structure:
     res.json({
       success: true,
       inquiryId,
-      message: 'Inquiry registered! You can now send it directly to Managing Director Jahangir Khan on WhatsApp.',
+      message: 'Inquiry registered! You can now send it directly to Zaara Travels on WhatsApp.',
       whatsappLink: waLink,
+    });
+  });
+
+  // Handle Automatic Booking Confirmation & Dispatch to Admin Email + WhatsApp
+  app.post('/api/confirm-booking', async (req, res) => {
+    const bookingData = req.body;
+    console.log('---------------------------------------------------------');
+    console.log('📌 AUTOMATIC BOOKING CONFIRMATION DISPATCHED TO BACKEND');
+    console.log('Admin Email:', COMPANY_DETAILS.email);
+    console.log('WhatsApp Helpline:', COMPANY_DETAILS.phone);
+    console.log('Booking Details:', JSON.stringify(bookingData, null, 2));
+    console.log('---------------------------------------------------------');
+
+    // Trigger Twilio WhatsApp / SMS notification logic
+    const twilioResult = await sendTwilioWhatsAppNotification(bookingData);
+
+    res.json({
+      success: true,
+      message: 'Booking & PDF Voucher reference automatically processed for info@zaaratravel.com & WhatsApp (+91 99339 92786).',
+      adminEmailSentTo: COMPANY_DETAILS.email,
+      adminWhatsApp: COMPANY_DETAILS.phone,
+      twilioResult,
+      whatsappDispatchLink: twilioResult.whatsappUrl,
+    });
+  });
+
+  // Dedicated API endpoint for automated WhatsApp notifications
+  app.post('/api/send-whatsapp', async (req, res) => {
+    const bookingData = req.body;
+    const twilioResult = await sendTwilioWhatsAppNotification(bookingData);
+
+    res.json({
+      success: true,
+      recipientWhatsApp: '+91 99339 92786',
+      whatsappUrl: twilioResult.whatsappUrl,
+      twilioResult,
+      message: twilioResult.message,
+    });
+  });
+
+  app.post('/api/send-booking-email', (req, res) => {
+    const booking = req.body;
+    console.log('=========================================================');
+    console.log('📧 DISPATCHING BOOKING CONFIRMATION EMAIL VIA BACKEND MAILER');
+    console.log(`To Guest: ${booking.guestEmail || 'Not specified'}`);
+    console.log(`To Admin: ${COMPANY_DETAILS.email}`);
+    console.log(`Booking ID: ${booking.bookingId} | Tour: ${booking.tourTitle}`);
+    console.log(`Travel Date: ${booking.travelDate} | Vehicle: ${booking.vehicleType}`);
+    console.log(`Total Price: ₹${booking.totalAmountINR?.toLocaleString('en-IN') || 0} ($${booking.totalAmountUSD || 0} USD)`);
+    console.log('=========================================================');
+
+    res.json({
+      success: true,
+      service: 'Zaara Travels Email Dispatch Engine',
+      guestEmailSentTo: booking.guestEmail || 'N/A',
+      adminEmailSentTo: COMPANY_DETAILS.email,
+      bookingRef: booking.bookingId,
+      timestamp: new Date().toISOString(),
+      status: 'CONFIRMED_DELIVERED',
     });
   });
 

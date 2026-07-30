@@ -12,10 +12,13 @@ import { CompareToursModal } from './components/CompareToursModal';
 import { DestinationHeroSlider } from './components/DestinationHeroSlider';
 import { LanguageSwitcherBottom } from './components/LanguageSwitcher';
 import { FloatingSupportChat } from './components/FloatingSupportChat';
+import { ScrollFadeIn } from './components/ScrollFadeIn';
 import { POPULAR_TOURS } from './data/toursData';
 import { TESTIMONIALS_DATA } from './data/vehiclesData';
 import { TourPackage } from './types';
 import { CurrencyCode, FALLBACK_RATES_FROM_USD } from './utils/currencyConverter';
+import { sendBookingConfirmationEmail } from './utils/emailService';
+import { triggerTwilioWhatsAppNotification } from './utils/twilioService';
 import { Search, Sparkles, ShieldCheck, MapPin, Compass, Award, Star, MessageSquare, ArrowRight, CheckCircle2, UserCheck, Phone, ArrowRightLeft } from 'lucide-react';
 
 export default function App() {
@@ -81,8 +84,36 @@ export default function App() {
     }
   }, [bookings]);
 
-  const handleAddBooking = (newBooking: any) => {
+  const handleAddBooking = async (newBooking: any) => {
     setBookings((prev) => [newBooking, ...prev]);
+    const payload = {
+      bookingId: newBooking.bookingId,
+      guestName: newBooking.guestName,
+      guestEmail: newBooking.guestEmail,
+      guestPhone: newBooking.guestPhone,
+      tourTitle: newBooking.tourTitle,
+      travelDate: newBooking.travelDate,
+      pickupTime: newBooking.pickupTime,
+      pickupLocation: newBooking.pickupLocation,
+      vehicleType: newBooking.vehicleType,
+      totalAmountINR: newBooking.totalAmountINR,
+      totalAmountUSD: newBooking.totalAmountUSD,
+      paymentMethod: newBooking.paymentMethod,
+      paymentStatus: newBooking.paymentStatus,
+      specialRequests: newBooking.specialRequests,
+    };
+
+    try {
+      await sendBookingConfirmationEmail(payload);
+    } catch (err) {
+      console.warn('Booking confirmation email delivery notice:', err);
+    }
+
+    try {
+      await triggerTwilioWhatsAppNotification(payload);
+    } catch (err) {
+      console.warn('Twilio WhatsApp notification notice:', err);
+    }
   };
 
   const handleRemoveBooking = (id: string) => {
@@ -152,7 +183,7 @@ export default function App() {
 
               <div className="max-w-7xl mx-auto relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
                 {/* Left Text & Search Column (Half-Width) */}
-                <div className="lg:col-span-6 space-y-6">
+                <ScrollFadeIn direction="right" className="lg:col-span-6 space-y-6">
                   <div className="inline-flex items-center gap-2 bg-slate-900 border border-slate-800 text-amber-400 font-extrabold text-xs px-3.5 py-1.5 rounded-full shadow">
                     <UserCheck className="w-4 h-4 text-emerald-400" />
                     <span>Government Registered Operator • Zaara Travels</span>
@@ -218,142 +249,153 @@ export default function App() {
                     </span>
                     <span className="text-amber-400 font-extrabold">📞 24/7: +91 99339 92786</span>
                   </div>
-                </div>
+                </ScrollFadeIn>
 
                 {/* Right Column: Half-Width Interactive Destination Image Slider */}
-                <div className="lg:col-span-6">
+                <ScrollFadeIn direction="left" delay={0.2} className="lg:col-span-6">
                   <DestinationHeroSlider
                     onSelectDestination={(loc) => {
                       setSearchQuery(loc);
                       setActiveTab('packages');
                     }}
                   />
-                </div>
+                </ScrollFadeIn>
               </div>
             </section>
 
             {/* Popular Tours Section */}
-            <section className="max-w-7xl mx-auto px-4 sm:px-6 space-y-8">
-              <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-                <div>
-                  <span className="text-xs font-extrabold text-sky-600 uppercase tracking-widest block">
-                    Handcrafted India Holidays
-                  </span>
-                  <h2 className="text-3xl font-black text-slate-900 tracking-tight mt-1">Popular Tour Packages</h2>
+            <ScrollFadeIn direction="up">
+              <section className="max-w-7xl mx-auto px-4 sm:px-6 space-y-8">
+                <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+                  <div>
+                    <span className="text-xs font-extrabold text-sky-600 uppercase tracking-widest block">
+                      Handcrafted India Holidays
+                    </span>
+                    <h2 className="text-3xl font-black text-slate-900 tracking-tight mt-1">Popular Tour Packages</h2>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => handleOpenCompare()}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition shadow"
+                    >
+                      <ArrowRightLeft className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Compare Any 2 Tours</span>
+                    </button>
+
+                    <button
+                      onClick={() => setActiveTab('packages')}
+                      className="inline-flex items-center gap-1.5 text-xs font-bold text-sky-600 hover:text-sky-800 transition"
+                    >
+                      <span>View All Packages</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => handleOpenCompare()}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition shadow"
-                  >
-                    <ArrowRightLeft className="w-3.5 h-3.5 text-amber-400" />
-                    <span>Compare Any 2 Tours</span>
-                  </button>
-
-                  <button
-                    onClick={() => setActiveTab('packages')}
-                    className="inline-flex items-center gap-1.5 text-xs font-bold text-sky-600 hover:text-sky-800 transition"
-                  >
-                    <span>View All Packages</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
+                {/* Grid of Tours */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {POPULAR_TOURS.slice(0, 6).map((tour, idx) => (
+                    <ScrollFadeIn key={tour.id} direction="up" delay={idx * 0.08}>
+                      <TourCard
+                        tour={tour}
+                        currency={currency}
+                        rates={rates}
+                        onSelectTour={(t) => setSelectedTourModal(t)}
+                        onQuickBook={(t) => setSelectedTourModal(t)}
+                        onCompareTour={(t) => handleOpenCompare(t)}
+                      />
+                    </ScrollFadeIn>
+                  ))}
                 </div>
-              </div>
-
-              {/* Grid of Tours */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {POPULAR_TOURS.slice(0, 6).map((tour) => (
-                  <TourCard
-                    key={tour.id}
-                    tour={tour}
-                    currency={currency}
-                    rates={rates}
-                    onSelectTour={(t) => setSelectedTourModal(t)}
-                    onQuickBook={(t) => setSelectedTourModal(t)}
-                    onCompareTour={(t) => handleOpenCompare(t)}
-                  />
-                ))}
-              </div>
-            </section>
+              </section>
+            </ScrollFadeIn>
 
             {/* Regional Climate & Best Travel Season Component */}
-            <RegionalClimateSection />
+            <ScrollFadeIn direction="up">
+              <RegionalClimateSection />
+            </ScrollFadeIn>
 
             {/* Services Offered Section */}
-            <section className="bg-white border-y border-slate-200 py-16 px-4 sm:px-6">
-              <div className="max-w-7xl mx-auto space-y-12">
-                <div className="text-center max-w-2xl mx-auto space-y-2">
-                  <span className="text-xs font-bold text-amber-600 uppercase tracking-widest">Everything You Need</span>
-                  <h2 className="text-3xl font-black text-slate-900">Services Offered by Zaara Travels</h2>
-                  <p className="text-xs text-slate-600">
-                    Managed directly by Jahangir Khan for seamless travel across India.
-                  </p>
+            <ScrollFadeIn direction="up">
+              <section className="bg-white border-y border-slate-200 py-16 px-4 sm:px-6">
+                <div className="max-w-7xl mx-auto space-y-12">
+                  <div className="text-center max-w-2xl mx-auto space-y-2">
+                    <span className="text-xs font-bold text-amber-600 uppercase tracking-widest">Everything You Need</span>
+                    <h2 className="text-3xl font-black text-slate-900">Services Offered by Zaara Travels</h2>
+                    <p className="text-xs text-slate-600">
+                      Managed directly by Zaara Travels for seamless travel across India.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <ScrollFadeIn direction="up" delay={0.1} className="p-6 rounded-2xl bg-slate-50 border border-slate-200 hover:border-sky-300 transition space-y-3">
+                      <div className="w-12 h-12 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center font-bold text-xl">
+                        🏛️
+                      </div>
+                      <h3 className="font-extrabold text-slate-900 text-lg">Golden Triangle & Sightseeing</h3>
+                      <p className="text-xs text-slate-600 leading-relaxed">
+                        Comprehensive private sightseeing of Delhi monuments, Agra Taj Mahal, Jaipur Forts, Mumbai coastal landmarks, and Varanasi ghats.
+                      </p>
+                    </ScrollFadeIn>
+
+                    <ScrollFadeIn direction="up" delay={0.2} className="p-6 rounded-2xl bg-slate-50 border border-slate-200 hover:border-sky-300 transition space-y-3">
+                      <div className="w-12 h-12 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center font-bold text-xl">
+                        🐅
+                      </div>
+                      <h3 className="font-extrabold text-slate-900 text-lg">Ranthambore Tiger Safaris</h3>
+                      <p className="text-xs text-slate-600 leading-relaxed">
+                        Guaranteed safari zone booking with open-top 4x4 Jeeps and Canters accompanied by naturalists inside Ranthambore National Park.
+                      </p>
+                    </ScrollFadeIn>
+
+                    <ScrollFadeIn direction="up" delay={0.3} className="p-6 rounded-2xl bg-slate-50 border border-slate-200 hover:border-sky-300 transition space-y-3">
+                      <div className="w-12 h-12 rounded-xl bg-sky-500/10 text-sky-600 flex items-center justify-center font-bold text-xl">
+                        🚗
+                      </div>
+                      <h3 className="font-extrabold text-slate-900 text-lg">Private Car & Chauffeur</h3>
+                      <p className="text-xs text-slate-600 leading-relaxed">
+                        Chauffeur-driven Maruti Dzire Sedans, Toyota Innova Crysta SUVs, and Tempo Travellers for intercity transfers with zero hidden toll fees.
+                      </p>
+                    </ScrollFadeIn>
+                  </div>
                 </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                  <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200 hover:border-sky-300 transition space-y-3">
-                    <div className="w-12 h-12 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center font-bold text-xl">
-                      🏛️
-                    </div>
-                    <h3 className="font-extrabold text-slate-900 text-lg">Golden Triangle & Sightseeing</h3>
-                    <p className="text-xs text-slate-600 leading-relaxed">
-                      Comprehensive private sightseeing of Delhi monuments, Agra Taj Mahal, Jaipur Forts, Mumbai coastal landmarks, and Varanasi ghats.
-                    </p>
-                  </div>
-
-                  <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200 hover:border-sky-300 transition space-y-3">
-                    <div className="w-12 h-12 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center font-bold text-xl">
-                      🐅
-                    </div>
-                    <h3 className="font-extrabold text-slate-900 text-lg">Ranthambore Tiger Safaris</h3>
-                    <p className="text-xs text-slate-600 leading-relaxed">
-                      Guaranteed safari zone booking with open-top 4x4 Jeeps and Canters accompanied by naturalists inside Ranthambore National Park.
-                    </p>
-                  </div>
-
-                  <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200 hover:border-sky-300 transition space-y-3">
-                    <div className="w-12 h-12 rounded-xl bg-sky-500/10 text-sky-600 flex items-center justify-center font-bold text-xl">
-                      🚗
-                    </div>
-                    <h3 className="font-extrabold text-slate-900 text-lg">Private Car & Chauffeur</h3>
-                    <p className="text-xs text-slate-600 leading-relaxed">
-                      Chauffeur-driven Maruti Dzire Sedans, Toyota Innova Crysta SUVs, and Tempo Travellers for intercity transfers with zero hidden toll fees.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </section>
+              </section>
+            </ScrollFadeIn>
 
             {/* Testimonials */}
-            <section className="max-w-7xl mx-auto px-4 sm:px-6 space-y-8">
-              <div className="text-center space-y-2">
-                <span className="text-xs font-bold text-sky-600 uppercase tracking-widest">Traveler Reviews</span>
-                <h2 className="text-3xl font-black text-slate-900">What Our Guests Say</h2>
-              </div>
+            <ScrollFadeIn direction="up">
+              <section className="max-w-7xl mx-auto px-4 sm:px-6 space-y-8">
+                <div className="text-center space-y-2">
+                  <span className="text-xs font-bold text-sky-600 uppercase tracking-widest">Traveler Reviews</span>
+                  <h2 className="text-3xl font-black text-slate-900">What Our Guests Say</h2>
+                </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {TESTIMONIALS_DATA.map((t) => (
-                  <div key={t.id} className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
-                    <div className="flex items-center gap-1 text-amber-400">
-                      {Array.from({ length: t.rating }).map((_, i) => (
-                        <Star key={i} className="w-4 h-4 fill-current" />
-                      ))}
-                    </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {TESTIMONIALS_DATA.map((t, idx) => (
+                    <ScrollFadeIn key={t.id} direction="up" delay={idx * 0.1}>
+                      <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
+                        <div className="flex items-center gap-1 text-amber-400">
+                          {Array.from({ length: t.rating }).map((_, i) => (
+                            <Star key={i} className="w-4 h-4 fill-current" />
+                          ))}
+                        </div>
 
-                    <p className="text-xs text-slate-700 italic leading-relaxed">"{t.comment}"</p>
+                        <p className="text-xs text-slate-700 italic leading-relaxed">"{t.comment}"</p>
 
-                    <div className="flex items-center gap-3 pt-3 border-t border-slate-100">
-                      <img src={t.avatar} alt={t.name} className="w-10 h-10 rounded-full object-cover" />
-                      <div>
-                        <div className="font-bold text-xs text-slate-900">{t.name}</div>
-                        <div className="text-[11px] text-slate-500">{t.country} • {t.tourTaken}</div>
+                        <div className="flex items-center gap-3 pt-3 border-t border-slate-100">
+                          <img src={t.avatar} alt={t.name} className="w-10 h-10 rounded-full object-cover" />
+                          <div>
+                            <div className="font-bold text-xs text-slate-900">{t.name}</div>
+                            <div className="text-[11px] text-slate-500">{t.country} • {t.tourTaken}</div>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
+                    </ScrollFadeIn>
+                  ))}
+                </div>
+              </section>
+            </ScrollFadeIn>
           </div>
         )}
 
@@ -432,16 +474,17 @@ export default function App() {
             ) : (
               <div className="space-y-8">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {paginatedTours.map((tour) => (
-                    <TourCard
-                      key={tour.id}
-                      tour={tour}
-                      currency={currency}
-                      rates={rates}
-                      onSelectTour={(t) => setSelectedTourModal(t)}
-                      onQuickBook={(t) => setSelectedTourModal(t)}
-                      onCompareTour={(t) => handleOpenCompare(t)}
-                    />
+                  {paginatedTours.map((tour, idx) => (
+                    <ScrollFadeIn key={tour.id} direction="up" delay={idx * 0.06}>
+                      <TourCard
+                        tour={tour}
+                        currency={currency}
+                        rates={rates}
+                        onSelectTour={(t) => setSelectedTourModal(t)}
+                        onQuickBook={(t) => setSelectedTourModal(t)}
+                        onCompareTour={(t) => handleOpenCompare(t)}
+                      />
+                    </ScrollFadeIn>
                   ))}
                 </div>
 

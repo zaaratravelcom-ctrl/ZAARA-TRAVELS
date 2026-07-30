@@ -53,7 +53,7 @@ export const AIPlannerModal: React.FC<AIPlannerModalProps> = ({
       if (data.success) {
         setAiResult(data);
       } else {
-        alert('Could not generate AI itinerary. Please try again or chat with Jahangir Khan directly on WhatsApp.');
+        alert('Could not generate AI itinerary. Please try again or chat with Zaara Travels directly on WhatsApp.');
       }
     } catch (err) {
       console.error(err);
@@ -71,7 +71,7 @@ export const AIPlannerModal: React.FC<AIPlannerModalProps> = ({
 *Duration:* ${duration} Days (${travelers} Travelers)
 *Estimated Price:* ${aiResult.estimatedPriceRange}
 
-Hi Jahangir Khan, I generated this custom travel plan on Zaara Travels AI. Please send me the final price quote and driver availability!`;
+Hello Zaara Travels, I generated this custom travel plan on your website. Please send me the final price quote and driver availability!`;
 
     window.open(`https://wa.me/919933992786?text=${encodeURIComponent(text)}`, '_blank');
   };
@@ -251,7 +251,7 @@ Hi Jahangir Khan, I generated this custom travel plan on Zaara Travels AI. Pleas
                     </ul>
                     {d.insiderTip && (
                       <p className="text-[11px] text-amber-800 bg-amber-50 p-2 rounded border border-amber-200 italic">
-                        💡 <strong>Jahangir Khan's Tip:</strong> {d.insiderTip}
+                        💡 <strong>Zaara Travels Tip:</strong> {d.insiderTip}
                       </p>
                     )}
                   </div>

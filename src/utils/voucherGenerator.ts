@@ -240,10 +240,10 @@ export function openPrintableVoucher(data: BookingVoucherData) {
       </div>
 
       <div class="box">
-        <div class="box-title">Managing Director & Helpline</div>
+        <div class="box-title">Office Address & Helpline</div>
         <div class="box-content">
           <strong>Zaara Travels Head Office</strong><br>
-          Managing Director: <strong>Jahangir Khan</strong><br>
+          Address: Rani Garden, Shastri Nagar, Geeta Colony, New Delhi, Delhi 110031.<br>
           📱 WhatsApp / Phone: <strong>+91 99339 92786</strong><br>
           🌐 Website: www.zaaratravel.com | info@zaaratravel.com
         </div>
@@ -292,11 +292,11 @@ export function openPrintableVoucher(data: BookingVoucherData) {
         </div>
       </div>
       <div class="box">
-        <div class="box-title">Emergency Contact 24/7</div>
+        <div class="box-title">Emergency Contact & Admin Processing 24/7</div>
         <div class="box-content" style="font-size: 12px;">
-          Direct Line: <strong>+91 99339 92786</strong><br>
+          Direct Line & WhatsApp: <strong>+91 99339 92786</strong><br>
           Official Email: <strong>info@zaaratravel.com</strong><br>
-          In Case of Flight Delay: Message WhatsApp immediately with flight number.
+          <span style="color: #0284c7; font-weight: 600;">✓ Auto-Transmitted to Admin for Instant Driver & Hotel Processing</span>
         </div>
       </div>
     </div>
@@ -304,8 +304,8 @@ export function openPrintableVoucher(data: BookingVoucherData) {
     <div class="owner-sign">
       <div>
         <div style="font-size: 12px; color: #64748b;">Authorized Signatory</div>
-        <div style="font-size: 16px; font-weight: 800; color: #0f172a; margin-top: 4px;">Jahangir Khan</div>
-        <div style="font-size: 12px; color: #0284c7;">Managing Director, Zaara Travels</div>
+        <div style="font-size: 16px; font-weight: 800; color: #0f172a; margin-top: 4px;">MD Jahangir Khan</div>
+        <div style="font-size: 12px; color: #0284c7;">Managing Director & Authorized Signatory</div>
       </div>
       <div style="text-align: right;">
         <div style="font-family: monospace; font-size: 10px; background: #f1f5f9; padding: 6px 12px; border-radius: 4px;">

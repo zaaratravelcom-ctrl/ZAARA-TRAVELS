@@ -47,7 +47,7 @@ export const AICustomItineraryModal: React.FC<AICustomItineraryModalProps> = ({ 
       if (data.success) {
         setResult(data);
       } else {
-        setErrorMsg('Could not generate AI plan. Please try again or chat with Jahangir Khan directly on WhatsApp.');
+        setErrorMsg('Could not generate AI plan. Please try again or chat with Zaara Travels directly on WhatsApp.');
       }
     } catch (err) {
       console.error('Error fetching AI custom itinerary:', err);
@@ -71,7 +71,7 @@ export const AICustomItineraryModal: React.FC<AICustomItineraryModalProps> = ({ 
                 AI Custom India Tour Planner
               </h2>
               <p className="text-xs text-sky-300 font-medium">
-                Tailored in seconds by Zaara Travels Gemini AI Engine & Jahangir Khan
+                Tailored in seconds by Zaara Travels Gemini AI Engine
               </p>
             </div>
           </div>
@@ -249,7 +249,7 @@ export const AICustomItineraryModal: React.FC<AICustomItineraryModalProps> = ({ 
 
                     {day.insiderTip && (
                       <div className="mt-2 text-[11px] bg-sky-50 text-sky-800 p-2 rounded-lg font-medium border border-sky-100">
-                        💡 <strong>MD Jahangir Khan Tip:</strong> {day.insiderTip}
+                        💡 <strong>Zaara Travels Insider Tip:</strong> {day.insiderTip}
                       </div>
                     )}
                   </div>
@@ -268,7 +268,7 @@ export const AICustomItineraryModal: React.FC<AICustomItineraryModalProps> = ({ 
 
                 <a
                   href={`https://wa.me/919933992786?text=${encodeURIComponent(
-                    `Hello Jahangir Khan, I generated an AI Custom Itinerary on Zaara Travels: "${result.itineraryTitle}" (${duration} Days, ${travelers} guests). Please send me your best final price quote!`
+                    `Hello Zaara Travels, I generated an AI Custom Itinerary on your website: "${result.itineraryTitle}" (${duration} Days, ${travelers} guests). Please send me your best final price quote!`
                   )}`}
                   target="_blank"
                   rel="noopener noreferrer"
