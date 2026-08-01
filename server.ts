@@ -1,15 +1,23 @@
-import express from 'express';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import { createServer as createViteServer } from 'vite';
-import { GoogleGenAI } from '@google/genai';
-import dotenv from 'dotenv';
-import { sendTwilioWhatsAppNotification } from './server/twilioService';
-
-dotenv.config();
+import express from "express";
+import path from "path";
+import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+const app = express();
+const distPath = path.join(__dirname, "dist");
+
+app.use(express.static(distPath));
+
+app.get("*", (_, res) => {
+  res.sendFile(path.join(distPath, "index.html"));
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
 
 async function startServer() {
   const app = express();
