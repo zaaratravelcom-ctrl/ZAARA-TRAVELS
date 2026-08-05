@@ -139,7 +139,7 @@ export const LanguageSwitcherBottom: React.FC = () => {
             </div>
 
             <div className="pt-2 border-t border-slate-800 flex items-center justify-between text-[10px] text-slate-400">
-              <span>Auto-translates entire website</span>
+              <span>Website Language Translator</span>
               <span className="text-amber-400 font-bold">12 Languages</span>
             </div>
           </div>

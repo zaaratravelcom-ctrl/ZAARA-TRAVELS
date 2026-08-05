@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Phone, Mail, MapPin, Globe, ShieldCheck, MessageSquare, Send, CheckCircle2, UserCheck } from 'lucide-react';
 import { ScrollFadeIn } from './ScrollFadeIn';
+import { sanitizePhoneNumber, isValidPhoneNumber, handlePhoneKeyDown, PHONE_ERROR_MESSAGE } from '../utils/phoneValidation';
 
 export const ContactView: React.FC = () => {
   const [name, setName] = useState('');
@@ -13,6 +14,10 @@ export const ContactView: React.FC = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!phone || !isValidPhoneNumber(phone)) {
+      alert(PHONE_ERROR_MESSAGE);
+      return;
+    }
     const waText = `*Inquiry - Zaara Travels Website*
 *Name:* ${name}
 *Phone:* ${phone}
@@ -84,11 +89,28 @@ Hello Zaara Travels, please contact me with best price quote!`;
                 <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
                   <Phone className="w-4 h-4" />
                 </div>
-                <div>
-                  <span className="text-slate-400 block font-semibold">Mobile & WhatsApp (24/7)</span>
-                  <a href="https://wa.me/919933992786" target="_blank" rel="noreferrer" className="text-emerald-700 font-bold hover:underline text-sm">
-                    +91 99339 92786
-                  </a>
+                <div className="space-y-1">
+                  <span className="text-slate-400 block font-semibold">Contact Numbers (24/7 Support)</span>
+                  <div className="space-y-1 text-xs">
+                    <div>
+                      <span className="text-slate-500 font-medium">Primary / WhatsApp: </span>
+                      <a href="https://wa.me/919933992786" target="_blank" rel="noreferrer" className="text-emerald-700 font-bold hover:underline">
+                        +91 99339 92786
+                      </a>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 font-medium">Secondary Mobile: </span>
+                      <a href="tel:+919932999786" className="text-slate-900 font-bold hover:text-sky-600">
+                        +91 99329 99786
+                      </a>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 font-medium">Office Landline: </span>
+                      <a href="tel:+01169296175" className="text-slate-900 font-bold hover:text-sky-600">
+                        +011 69296175
+                      </a>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -193,12 +215,21 @@ Hello Zaara Travels, please contact me with best price quote!`;
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Mobile / WhatsApp No. *</label>
                   <input
                     type="tel"
+                    inputMode="numeric"
                     required
-                    placeholder="+91 9876543210 or +1 555-0199"
+                    placeholder="e.g. 9933992786 or +919933992786"
                     value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs font-medium focus:ring-2 focus:ring-sky-500"
+                    onKeyDown={handlePhoneKeyDown}
+                    onChange={(e) => setPhone(sanitizePhoneNumber(e.target.value))}
+                    className={`w-full bg-slate-50 border rounded-lg px-3 py-2 text-xs font-medium focus:ring-2 focus:ring-sky-500 ${
+                      phone && !isValidPhoneNumber(phone) ? 'border-red-400 bg-red-50/50' : 'border-slate-300'
+                    }`}
                   />
+                  {phone && !isValidPhoneNumber(phone) && (
+                    <p className="text-[11px] font-bold text-red-600 mt-1">
+                      ⚠️ Enter 7 to 15 digits (digits & leading + only).
+                    </p>
+                  )}
                 </div>
 
                 <div>

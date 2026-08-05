@@ -2,16 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
 import { TourCard } from './components/TourCard';
+import { TourListingView } from './components/TourListingView';
 import { TourDetailsModal } from './components/TourDetailsModal';
 import { AIPlannerModal } from './components/AIPlannerModal';
+import { AdminLoginModal } from './components/AdminLoginModal';
 import { MyBookingsView } from './components/MyBookingsView';
 import { ContactView } from './components/ContactView';
 import { FleetView } from './components/FleetView';
-import { RegionalClimateSection } from './components/RegionalClimateSection';
-import { CompareToursModal } from './components/CompareToursModal';
+import { TermsConditionsView } from './components/TermsConditionsView';
+import { PrivacyPolicyView } from './components/PrivacyPolicyView';
 import { DestinationHeroSlider } from './components/DestinationHeroSlider';
 import { LanguageSwitcherBottom } from './components/LanguageSwitcher';
-import { FloatingSupportChat } from './components/FloatingSupportChat';
 import { ScrollFadeIn } from './components/ScrollFadeIn';
 import { POPULAR_TOURS } from './data/toursData';
 import { TESTIMONIALS_DATA } from './data/vehiclesData';
@@ -19,33 +20,140 @@ import { TourPackage } from './types';
 import { CurrencyCode, FALLBACK_RATES_FROM_USD } from './utils/currencyConverter';
 import { sendBookingConfirmationEmail } from './utils/emailService';
 import { triggerTwilioWhatsAppNotification } from './utils/twilioService';
-import { Search, Sparkles, ShieldCheck, MapPin, Compass, Award, Star, MessageSquare, ArrowRight, CheckCircle2, UserCheck, Phone, ArrowRightLeft } from 'lucide-react';
+import { Search, Sparkles, ShieldCheck, MapPin, Compass, Award, Star, MessageSquare, ArrowRight, CheckCircle2, UserCheck, Phone, Mic, MicOff } from 'lucide-react';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<string>('home');
-  const [currency, setCurrency] = useState<CurrencyCode>('INR');
+  const [currency, setCurrency] = useState<CurrencyCode>('USD');
   const [rates, setRates] = useState<Record<CurrencyCode, number>>(FALLBACK_RATES_FROM_USD);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState<number>(1);
   const ITEMS_PER_PAGE = 6;
 
+  // Voice Search / Microphone Access state
+  const [isListening, setIsListening] = useState<boolean>(false);
+  const [voiceError, setVoiceError] = useState<string | null>(null);
+  const recognitionRef = React.useRef<any>(null);
+
+  const handleToggleVoiceSearch = () => {
+    setVoiceError(null);
+
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      setVoiceError('Voice search is not supported in this browser.');
+      setTimeout(() => setVoiceError(null), 4000);
+      return;
+    }
+
+    if (isListening) {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+      setIsListening(false);
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.lang = 'en-US';
+
+      recognition.onstart = () => {
+        setIsListening(true);
+      };
+
+      recognition.onresult = (event: any) => {
+        const transcript = event.results[0]?.[0]?.transcript;
+        if (transcript) {
+          setSearchQuery(transcript);
+        }
+        setIsListening(false);
+      };
+
+      recognition.onerror = (event: any) => {
+        console.warn('Voice recognition notice:', event.error);
+        if (event.error === 'no-speech') {
+          setVoiceError('No speech detected. Please try again.');
+        } else if (event.error === 'not-allowed' || event.error === 'permission-denied') {
+          setVoiceError('Microphone access denied. Please enable mic permissions.');
+        } else {
+          setVoiceError('Could not process voice input. Try again.');
+        }
+        setIsListening(false);
+        setTimeout(() => setVoiceError(null), 4000);
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+      };
+
+      recognitionRef.current = recognition;
+      recognition.start();
+    } catch (err) {
+      console.error('Failed to start speech recognition:', err);
+      setVoiceError('Unable to access microphone.');
+      setIsListening(false);
+      setTimeout(() => setVoiceError(null), 4000);
+    }
+  };
+
   // Selected Tour for Modal
   const [selectedTourModal, setSelectedTourModal] = useState<TourPackage | null>(null);
 
-  // Compare Tours Modal State
-  const [isCompareOpen, setIsCompareOpen] = useState<boolean>(false);
-  const [compareTourA, setCompareTourA] = useState<string | undefined>(undefined);
-
-  // AI Planner Modal Open State
-  const [isAIPlannerOpen, setIsAIPlannerOpen] = useState<boolean>(false);
-
-  const handleOpenCompare = (tour?: TourPackage) => {
-    if (tour) {
-      setCompareTourA(tour.id);
+  // Dynamic tour packages loading (supports admin additions)
+  const [tourPackages, setTourPackages] = useState<TourPackage[]>(() => {
+    try {
+      const savedCustom = localStorage.getItem('zaara_custom_tours');
+      if (savedCustom) {
+        const parsed = JSON.parse(savedCustom);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          // Merge custom admin tours ahead of base popular tours
+          return [...parsed, ...POPULAR_TOURS];
+        }
+      }
+    } catch (e) {
+      console.error('Error loading custom tours from storage:', e);
     }
-    setIsCompareOpen(true);
-  };
+    return POPULAR_TOURS;
+  });
+
+  // Listen for custom tour updates from admin panel or storage
+  useEffect(() => {
+    const handleStorageChange = () => {
+      try {
+        const savedCustom = localStorage.getItem('zaara_custom_tours');
+        if (savedCustom) {
+          const parsed = JSON.parse(savedCustom);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setTourPackages([...parsed, ...POPULAR_TOURS]);
+          }
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('zaara_tours_updated', handleStorageChange);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('zaara_tours_updated', handleStorageChange);
+    };
+  }, []);
+
+  // AI Planner & Admin Modal Open States
+  const [isAIPlannerOpen, setIsAIPlannerOpen] = useState<boolean>(false);
+  const [isAdminLoginModalOpen, setIsAdminLoginModalOpen] = useState<boolean>(false);
+  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState<boolean>(() => {
+    try {
+      return sessionStorage.getItem('zaara_admin_session') === 'true';
+    } catch (e) {
+      return false;
+    }
+  });
 
   // Bookings state initialized from localStorage
   const [bookings, setBookings] = useState<any[]>(() => {
@@ -95,6 +203,7 @@ export default function App() {
       travelDate: newBooking.travelDate,
       pickupTime: newBooking.pickupTime,
       pickupLocation: newBooking.pickupLocation,
+      guideLanguage: newBooking.guideLanguage || 'English',
       vehicleType: newBooking.vehicleType,
       totalAmountINR: newBooking.totalAmountINR,
       totalAmountUSD: newBooking.totalAmountUSD,
@@ -123,7 +232,7 @@ export default function App() {
   };
 
   // Filter tours based on search, activeTab, and selected category
-  const filteredTours = POPULAR_TOURS.filter((tour) => {
+  const filteredTours = tourPackages.filter((tour) => {
     // Search matching
     const matchesSearch =
       tour.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -167,6 +276,8 @@ export default function App() {
         rates={rates}
         setRates={setRates}
         onOpenAIPlanner={() => setIsAIPlannerOpen(true)}
+        onOpenAdminLogin={() => setIsAdminLoginModalOpen(true)}
+        isAdminLoggedIn={isAdminLoggedIn}
         bookingsCount={bookings.length}
       />
 
@@ -186,7 +297,7 @@ export default function App() {
                 <ScrollFadeIn direction="right" className="lg:col-span-6 space-y-6">
                   <div className="inline-flex items-center gap-2 bg-slate-900 border border-slate-800 text-amber-400 font-extrabold text-xs px-3.5 py-1.5 rounded-full shadow">
                     <UserCheck className="w-4 h-4 text-emerald-400" />
-                    <span>Government Registered Operator • Zaara Travels</span>
+                    <span>Private Tours & Cab Rentals • Zaara Travels</span>
                   </div>
 
                   <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-white leading-tight">
@@ -200,24 +311,75 @@ export default function App() {
                     Explore the Golden Triangle, witness sunrise at the Taj Mahal, track Bengal Tigers in Ranthambore, and discover ancient palaces in ultimate air-conditioned comfort.
                   </p>
 
-                  {/* Search Bar */}
-                  <div className="bg-white/10 backdrop-blur-md p-2 rounded-2xl border border-white/20 shadow-xl flex items-center gap-2">
-                    <div className="pl-3 text-slate-300">
-                      <Search className="w-5 h-5 text-amber-400" />
+                  {/* Search Bar with Microphone Voice Search */}
+                  <div className="relative">
+                    <div className={`bg-white/10 backdrop-blur-md p-2 rounded-2xl border transition shadow-xl flex items-center gap-2 ${
+                      isListening ? 'border-amber-400 ring-2 ring-amber-400/40 bg-white/15' : 'border-white/20'
+                    }`}>
+                      <div className="pl-3 text-slate-300">
+                        <Search className="w-5 h-5 text-amber-400" />
+                      </div>
+                      <input
+                        type="text"
+                        placeholder={isListening ? "Listening... Speak your destination..." : "Search Taj Mahal, Jaipur, Tiger Safari..."}
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="bg-transparent w-full px-2 py-2 text-xs sm:text-sm text-white placeholder-slate-400 focus:outline-none"
+                      />
+
+                      {/* Voice Search Microphone Button */}
+                      <button
+                        type="button"
+                        onClick={handleToggleVoiceSearch}
+                        aria-label={isListening ? "Stop voice search" : "Search destinations by voice"}
+                        title={isListening ? "Stop voice search" : "Search destinations by voice"}
+                        className={`p-2.5 rounded-xl transition flex items-center justify-center shrink-0 ${
+                          isListening
+                            ? 'bg-red-500 text-white animate-pulse shadow-lg ring-2 ring-red-400'
+                            : 'bg-white/15 hover:bg-white/25 text-amber-300 hover:text-amber-200 border border-white/20'
+                        }`}
+                      >
+                        {isListening ? (
+                          <MicOff className="w-4 h-4 text-white" />
+                        ) : (
+                          <Mic className="w-4 h-4" />
+                        )}
+                      </button>
+
+                      <button
+                        onClick={() => setActiveTab('packages')}
+                        className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-black px-4 sm:px-5 py-2.5 rounded-xl text-xs transition shadow shrink-0"
+                      >
+                        Find Packages
+                      </button>
                     </div>
-                    <input
-                      type="text"
-                      placeholder="Search Taj Mahal, Jaipur, Tiger Safari..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="bg-transparent w-full px-2 py-2 text-xs sm:text-sm text-white placeholder-slate-400 focus:outline-none"
-                    />
-                    <button
-                      onClick={() => setActiveTab('packages')}
-                      className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-black px-4 sm:px-5 py-2.5 rounded-xl text-xs transition shadow shrink-0"
-                    >
-                      Find Packages
-                    </button>
+
+                    {/* Listening Status Banner */}
+                    {isListening && (
+                      <div className="absolute top-full left-0 right-0 mt-2 bg-slate-900/95 border border-amber-400/50 backdrop-blur-md text-amber-300 text-xs py-2.5 px-4 rounded-xl flex items-center justify-between shadow-2xl z-20">
+                        <div className="flex items-center gap-2.5">
+                          <span className="relative flex h-2.5 w-2.5">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
+                          </span>
+                          <span className="font-semibold text-white">Listening... Speak now (e.g., "Agra Taj Mahal", "Jaipur Tour")</span>
+                        </div>
+                        <button
+                          onClick={handleToggleVoiceSearch}
+                          className="text-slate-400 hover:text-white text-[11px] font-bold underline ml-2"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Voice Error Notification */}
+                    {voiceError && (
+                      <div className="absolute top-full left-0 right-0 mt-2 bg-red-950/95 border border-red-500/50 text-red-200 text-xs py-2 px-3.5 rounded-xl shadow-xl z-20 flex items-center justify-between">
+                        <span>{voiceError}</span>
+                        <button onClick={() => setVoiceError(null)} className="text-red-400 hover:text-white font-bold ml-2">✕</button>
+                      </div>
+                    )}
                   </div>
 
                   {/* Quick CTAs */}
@@ -241,7 +403,7 @@ export default function App() {
                     </a>
                   </div>
 
-                  {/* Verified Agency Note */}
+                  {/* Official Agency Details */}
                   <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
                     <span className="flex items-center gap-1.5 font-bold text-slate-300">
                       <ShieldCheck className="w-4 h-4 text-emerald-400" />
@@ -276,14 +438,6 @@ export default function App() {
 
                   <div className="flex items-center gap-3">
                     <button
-                      onClick={() => handleOpenCompare()}
-                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition shadow"
-                    >
-                      <ArrowRightLeft className="w-3.5 h-3.5 text-amber-400" />
-                      <span>Compare Any 2 Tours</span>
-                    </button>
-
-                    <button
                       onClick={() => setActiveTab('packages')}
                       className="inline-flex items-center gap-1.5 text-xs font-bold text-sky-600 hover:text-sky-800 transition"
                     >
@@ -295,7 +449,7 @@ export default function App() {
 
                 {/* Grid of Tours */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {POPULAR_TOURS.slice(0, 6).map((tour, idx) => (
+                  {tourPackages.slice(0, 6).map((tour, idx) => (
                     <ScrollFadeIn key={tour.id} direction="up" delay={idx * 0.08}>
                       <TourCard
                         tour={tour}
@@ -303,17 +457,11 @@ export default function App() {
                         rates={rates}
                         onSelectTour={(t) => setSelectedTourModal(t)}
                         onQuickBook={(t) => setSelectedTourModal(t)}
-                        onCompareTour={(t) => handleOpenCompare(t)}
                       />
                     </ScrollFadeIn>
                   ))}
                 </div>
               </section>
-            </ScrollFadeIn>
-
-            {/* Regional Climate & Best Travel Season Component */}
-            <ScrollFadeIn direction="up">
-              <RegionalClimateSection />
             </ScrollFadeIn>
 
             {/* Services Offered Section */}
@@ -349,14 +497,26 @@ export default function App() {
                       </p>
                     </ScrollFadeIn>
 
-                    <ScrollFadeIn direction="up" delay={0.3} className="p-6 rounded-2xl bg-slate-50 border border-slate-200 hover:border-sky-300 transition space-y-3">
-                      <div className="w-12 h-12 rounded-xl bg-sky-500/10 text-sky-600 flex items-center justify-center font-bold text-xl">
-                        🚗
+                    <ScrollFadeIn direction="up" delay={0.3} className="p-6 rounded-2xl bg-slate-50 border border-slate-200 hover:border-sky-300 transition space-y-3 flex flex-col justify-between">
+                      <div>
+                        <div className="w-12 h-12 rounded-xl bg-sky-500/10 text-sky-600 flex items-center justify-center font-bold text-xl">
+                          🚗
+                        </div>
+                        <h3 className="font-extrabold text-slate-900 text-lg mt-3">Private Cab & Driver Rental</h3>
+                        <p className="text-xs text-slate-600 leading-relaxed mt-2">
+                          Professional driver-driven Maruti Dzire Sedans, Toyota Innova Crysta SUVs, and Tempo Travellers for intercity transfers with zero hidden toll fees.
+                        </p>
                       </div>
-                      <h3 className="font-extrabold text-slate-900 text-lg">Private Car & Chauffeur</h3>
-                      <p className="text-xs text-slate-600 leading-relaxed">
-                        Chauffeur-driven Maruti Dzire Sedans, Toyota Innova Crysta SUVs, and Tempo Travellers for intercity transfers with zero hidden toll fees.
-                      </p>
+                      <button
+                        onClick={() => {
+                          setActiveTab('fleet');
+                          window.scrollTo({ top: 0, behavior: 'smooth' });
+                        }}
+                        className="inline-flex items-center gap-1.5 text-xs font-bold text-sky-600 hover:text-sky-800 transition mt-3"
+                      >
+                        <span>Book Cab Rental</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </button>
                     </ScrollFadeIn>
                   </div>
                 </div>
@@ -401,153 +561,24 @@ export default function App() {
 
         {/* PACKAGES / GOLDEN TRIANGLE / SAME DAY / TIGER SAFARI TAB */}
         {['packages', 'golden-triangle', 'same-day', 'tiger-safari'].includes(activeTab) && (
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-8">
-            <div className="bg-slate-900 text-white rounded-2xl p-6 sm:p-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <div>
-                <span className="text-xs font-bold text-amber-400 uppercase tracking-widest bg-slate-800 px-3 py-1 rounded-full">
-                  Zaara Travels Catalog
-                </span>
-                <h1 className="text-3xl font-black text-white mt-2">
-                  {activeTab === 'golden-triangle'
-                    ? 'Golden Triangle Tours'
-                    : activeTab === 'same-day'
-                    ? 'Same Day Express Tours'
-                    : activeTab === 'tiger-safari'
-                    ? 'Ranthambore Tiger Safaris'
-                    : 'All India Tour Packages'}
-                </h1>
-                <p className="text-xs text-slate-300 mt-1">
-                  Private air-conditioned transfers, expert guides, flexible dates, and custom choices.
-                </p>
-              </div>
-
-              {/* Search in Catalog */}
-              <div className="relative w-full sm:w-72">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
-                <input
-                  type="text"
-                  placeholder="Filter by city, title..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full bg-slate-800 text-white text-xs pl-9 pr-3 py-2.5 rounded-xl border border-slate-700 focus:outline-none focus:border-amber-400"
-                />
-              </div>
-            </div>
-
-            {/* Category Filter Pills (Only on main packages view) */}
-            {activeTab === 'packages' && (
-              <div className="flex items-center gap-2 overflow-x-auto pb-2">
-                {[
-                  { id: 'all', label: 'All Packages' },
-                  { id: 'golden-triangle', label: 'Golden Triangle' },
-                  { id: 'safari', label: 'Tiger Safaris' },
-                  { id: 'day-tour', label: 'Same Day Tours' },
-                  { id: 'sightseeing', label: 'City Sightseeing' },
-                  { id: 'spiritual', label: 'Spiritual & Ganges' },
-                ].map((cat) => (
-                  <button
-                    key={cat.id}
-                    onClick={() => setSelectedCategory(cat.id)}
-                    className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition ${
-                      selectedCategory === cat.id
-                        ? 'bg-sky-600 text-white shadow'
-                        : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
-                    }`}
-                  >
-                    {cat.label}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {/* Grid */}
-            {filteredTours.length === 0 ? (
-              <div className="text-center py-12 bg-white rounded-2xl border border-slate-200 p-8">
-                <p className="text-slate-600 text-sm font-semibold">No tour packages matched your filter criteria.</p>
-                <button
-                  onClick={() => { setSearchQuery(''); setSelectedCategory('all'); }}
-                  className="mt-3 text-xs text-sky-600 font-bold hover:underline"
-                >
-                  Clear Filters
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-8">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {paginatedTours.map((tour, idx) => (
-                    <ScrollFadeIn key={tour.id} direction="up" delay={idx * 0.06}>
-                      <TourCard
-                        tour={tour}
-                        currency={currency}
-                        rates={rates}
-                        onSelectTour={(t) => setSelectedTourModal(t)}
-                        onQuickBook={(t) => setSelectedTourModal(t)}
-                        onCompareTour={(t) => handleOpenCompare(t)}
-                      />
-                    </ScrollFadeIn>
-                  ))}
-                </div>
-
-                {/* Pagination Bar (Page 1, Page 2) */}
-                {totalPages > 1 && (
-                  <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
-                    <div className="text-xs font-semibold text-slate-600">
-                      Showing <span className="font-bold text-slate-900">{(currentPage - 1) * ITEMS_PER_PAGE + 1}</span>–
-                      <span className="font-bold text-slate-900">{Math.min(currentPage * ITEMS_PER_PAGE, filteredTours.length)}</span> of{' '}
-                      <span className="font-bold text-slate-900">{filteredTours.length}</span> Tour Packages
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => {
-                          if (currentPage > 1) {
-                            setCurrentPage((p) => p - 1);
-                            window.scrollTo({ top: 300, behavior: 'smooth' });
-                          }
-                        }}
-                        disabled={currentPage === 1}
-                        className="px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition"
-                      >
-                        ← Prev
-                      </button>
-
-                      {Array.from({ length: totalPages }).map((_, index) => {
-                        const pageNum = index + 1;
-                        return (
-                          <button
-                            key={pageNum}
-                            onClick={() => {
-                              setCurrentPage(pageNum);
-                              window.scrollTo({ top: 300, behavior: 'smooth' });
-                            }}
-                            className={`px-4 py-2 rounded-xl text-xs font-extrabold transition ${
-                              currentPage === pageNum
-                                ? 'bg-sky-600 text-white shadow-md'
-                                : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-                            }`}
-                          >
-                            Page {pageNum}
-                          </button>
-                        );
-                      })}
-
-                      <button
-                        onClick={() => {
-                          if (currentPage < totalPages) {
-                            setCurrentPage((p) => p + 1);
-                            window.scrollTo({ top: 300, behavior: 'smooth' });
-                          }
-                        }}
-                        disabled={currentPage === totalPages}
-                        className="px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition"
-                      >
-                        Next →
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+            <TourListingView
+              tours={tourPackages}
+              currency={currency}
+              rates={rates}
+              activeCategoryFilter={
+                activeTab === 'golden-triangle'
+                  ? 'golden-triangle'
+                  : activeTab === 'same-day'
+                  ? 'day-tour'
+                  : activeTab === 'tiger-safari'
+                  ? 'safari'
+                  : 'all'
+              }
+              onSelectTour={(t) => setSelectedTourModal(t)}
+              onQuickBook={(t) => setSelectedTourModal(t)}
+              onOpenAIPlanner={() => setIsAIPlannerOpen(true)}
+            />
           </div>
         )}
 
@@ -556,8 +587,9 @@ export default function App() {
           <FleetView
             currency={currency}
             rates={rates}
+            onAddBooking={handleAddBooking}
             onBookVehicle={(vName) => {
-              setActiveTab('contact');
+              // Cab booked
             }}
           />
         )}
@@ -566,6 +598,8 @@ export default function App() {
         {activeTab === 'my-bookings' && (
           <MyBookingsView
             bookings={bookings}
+            currency={currency}
+            rates={rates}
             onRemoveBooking={handleRemoveBooking}
             onExploreTours={() => setActiveTab('packages')}
           />
@@ -573,6 +607,26 @@ export default function App() {
 
         {/* CONTACT TAB VIEW */}
         {activeTab === 'contact' && <ContactView />}
+
+        {/* TERMS & CONDITIONS TAB VIEW */}
+        {activeTab === 'terms' && (
+          <TermsConditionsView
+            onNavigate={(tab) => {
+              setActiveTab(tab);
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+          />
+        )}
+
+        {/* PRIVACY POLICY TAB VIEW */}
+        {activeTab === 'privacy' && (
+          <PrivacyPolicyView
+            onNavigate={(tab) => {
+              setActiveTab(tab);
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+          />
+        )}
       </main>
 
       {/* Modals */}
@@ -591,28 +645,27 @@ export default function App() {
         onAddCustomBooking={handleAddBooking}
       />
 
-      <CompareToursModal
-        isOpen={isCompareOpen}
-        onClose={() => setIsCompareOpen(false)}
-        initialTourAId={compareTourA}
+      <AdminLoginModal
+        isOpen={isAdminLoginModalOpen}
+        onClose={() => setIsAdminLoginModalOpen(false)}
+        isAdminLoggedIn={isAdminLoggedIn}
+        setIsAdminLoggedIn={setIsAdminLoggedIn}
+        bookings={bookings}
+        setBookings={setBookings}
+        tourPackages={tourPackages}
+        setTourPackages={setTourPackages}
         currency={currency}
         rates={rates}
-        onBookTour={(tour) => setSelectedTourModal(tour)}
       />
 
       {/* Floating Bottom Language Switcher */}
       <LanguageSwitcherBottom />
 
-      {/* Floating Support Chat */}
-      <FloatingSupportChat
-        onNavigateToContact={() => {
-          setActiveTab('contact');
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        }}
-      />
-
       {/* Footer */}
-      <Footer setActiveTab={setActiveTab} onOpenAIPlanner={() => setIsAIPlannerOpen(true)} />
+      <Footer 
+        setActiveTab={setActiveTab} 
+        onOpenAIPlanner={() => setIsAIPlannerOpen(true)}
+      />
     </div>
   );
 }

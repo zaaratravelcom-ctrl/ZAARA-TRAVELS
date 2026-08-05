@@ -7,7 +7,7 @@ export const SERVICES_DATA: TravelService[] = [
     iconName: 'Compass',
     shortDesc: 'Handcrafted itineraries tailored to your pace, preferences, and budget.',
     fullDesc: 'Custom private tours across Delhi, Rajasthan, Agra, Varanasi, Kerala, and Himachal Pradesh. Includes dedicated air-conditioned vehicle, vetted local drivers, and licensed guides.',
-    features: ['Flexibility to pause or alter routes', 'Dedicated chauffeur 24/7', 'Private airport transfers included', 'Government approved guides'],
+    features: ['Flexibility to pause or alter routes', 'Dedicated professional driver 24/7', 'Private airport transfers included', 'Government approved guides'],
     image: 'https://images.unsplash.com/photo-1524492412937-b28074a5d7da?auto=format&fit=crop&w=800&q=80',
   },
   {
@@ -30,7 +30,7 @@ export const SERVICES_DATA: TravelService[] = [
   },
   {
     id: 'car-driver',
-    title: 'Private Car & Chauffeur Rental',
+    title: 'Private Car & Driver Rental',
     iconName: 'Car',
     shortDesc: 'Luxury AC Sedans, SUVs, and Tempo Travellers with uniform commercial drivers.',
     fullDesc: 'Rent a private car with a courteous, English-speaking driver for intercity transfers or full India road trips. Clean vehicles, fuel, toll, and permits handled seamlessly.',
@@ -51,7 +51,7 @@ export const SERVICES_DATA: TravelService[] = [
     title: 'Airport Pickup & Drop Services',
     iconName: 'PlaneTakeoff',
     shortDesc: 'Reliable, 24/7 flight-tracked airport transfers in Delhi, Jaipur, Mumbai & Agra.',
-    fullDesc: 'Never worry about missing a flight or finding a taxi at midnight. Our professional chauffeur holds a personalized nameboard at arrival gates.',
+    fullDesc: 'Never worry about missing a flight or finding a taxi at midnight. Our professional driver holds a personalized nameboard at arrival gates.',
     features: ['Live flight status tracking', 'Paging board at terminal exit', 'No surge pricing', 'Assistance with SIM cards & currency'],
     image: 'https://images.unsplash.com/photo-1436491865332-7a61a109cc05?auto=format&fit=crop&w=800&q=80',
   },
@@ -60,38 +60,91 @@ export const SERVICES_DATA: TravelService[] = [
 export const VEHICLES_DATA: VehicleOption[] = [
   {
     id: 'sedan-dzire',
-    name: 'Maruti Suzuki Dzire / Toyota Etios',
-    category: 'Executive Sedan',
-    passengers: '1 to 3 Passengers',
-    luggage: '2 Large + 2 Small Bags',
+    name: 'Dzire / Aura / Etios',
+    category: 'Sedan',
+    passengers: '1–4 Passengers',
+    seatingCapacity: '4 Passengers',
+    acDetails: 'Air Conditioned (Climate Control AC)',
+    luggage: '2 Large + 2 Hand Bags',
     image: 'https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?auto=format&fit=crop&w=800&q=80',
-    features: ['AC Air Conditioning', 'Clean Cloth Interiors', 'Bluetooth Music System', 'First Aid Kit & Water Bottles', 'Uniformed Chauffeur'],
-    idealFor: 'Couples, solo travelers & small families for same day tours and Golden Triangle.',
-    ratePerDayINR: 3200,
+    features: ['Air Conditioned (AC)', 'Clean Cloth Interiors', 'Bluetooth Music System', 'First Aid Kit & Water Bottles', 'Uniformed Professional Driver', 'Fuel & Toll Included'],
+    idealFor: 'Couples, solo travelers & small families 1–4 Passengers.',
+    ratePerDayINR: 2800,
+    ratePerKmINR: 14,
+    ratePerKmOneWayINR: 14,
+    ratePerKmRoundTripINR: 14,
+    discountPercentage: 10,
   },
   {
-    id: 'suv-innova',
-    name: 'Toyota Innova Crysta (6+1 Seater)',
-    category: 'Luxury SUV / MPV',
-    passengers: '4 to 6 Passengers',
-    luggage: '4 Large + 3 Small Bags',
+    id: 'suv-ertiga',
+    name: 'Ertiga / Rumion / XUV700',
+    category: 'SUV',
+    passengers: '4–6 Passengers',
+    seatingCapacity: '6 Passengers',
+    acDetails: 'Front & Rear Dual Air Conditioned',
+    luggage: '3 Large + 2 Small Bags',
     image: 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=800&q=80',
-    features: ['Captain Reclining Seats', 'Dual Zone Climate Control AC', 'Smooth Highway Ride', 'Spacious Legroom', 'USB Chargers at every row'],
-    idealFor: 'Families, small groups & long distance multi-city India road trips.',
-    ratePerDayINR: 4800,
+    features: ['Dual Zone AC Vents', 'Spacious Legroom', 'USB Phone Chargers', 'Highway Toll & Tax Paid', 'Luggage Carrier', 'English-Speaking Driver'],
+    idealFor: 'Families & small groups needing extra boot space 4–6 Passengers.',
+    ratePerDayINR: 3800,
+    ratePerKmINR: 20,
+    ratePerKmOneWayINR: 20,
+    ratePerKmRoundTripINR: 20,
+    discountPercentage: 15,
   },
   {
-    id: 'tempo-traveller',
-    name: 'Force Tempo Traveller (12/16 Seater)',
-    category: 'Group Minibus',
-    passengers: '8 to 15 Passengers',
-    luggage: '10 Large Suitcases',
+    id: 'innova-crysta',
+    name: 'Innova Crysta / Hycross',
+    category: 'Toyota',
+    passengers: '6–7 Passengers',
+    seatingCapacity: '6–7 Passengers',
+    acDetails: 'Automatic Climate Control AC (All Rows)',
+    luggage: '4 Large + 3 Hand Suitcases',
+    image: 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=800&q=80',
+    features: ['Captain Reclining Leather Seats', 'Individual AC Vents', 'Ultra Smooth Highway Suspension', 'First Aid & Mineral Water', 'Punctual Vetted Driver'],
+    idealFor: 'Premium family road trips & VIP intercity transfers 6–7 Passengers.',
+    ratePerDayINR: 4800,
+    ratePerKmINR: 25,
+    ratePerKmOneWayINR: 25,
+    ratePerKmRoundTripINR: 25,
+    discountPercentage: 25,
+  },
+  {
+    id: 'tempo-traveller-12',
+    name: 'Force Tempo Traveller',
+    category: 'Force Tempo',
+    passengers: '7–16 Passengers',
+    seatingCapacity: '7–16 Passengers',
+    acDetails: 'Heavy-Duty Roof Air Conditioner',
+    luggage: '10 Large Suitcases + Roof Carrier',
     image: 'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?auto=format&fit=crop&w=800&q=80',
-    features: ['Pushback Recliner Seats', 'High Ceiling Standing Height', 'Powerful Air Conditioning', 'Large Luggage Boot', 'Sound System with Mic'],
-    idealFor: 'Tour groups, corporate retreats, multi-family vacations & wedding transfers.',
+    features: ['Pushback Recliner Seats', 'High Ceiling Standing Height', 'Powerful Heavy-Duty AC', 'Stereo Sound System with Mic', 'All Interstate Permits Included'],
+    idealFor: 'Large families, corporate teams & tour groups 7–16 Passengers.',
     ratePerDayINR: 7500,
+    ratePerKmINR: 30,
+    ratePerKmOneWayINR: 30,
+    ratePerKmRoundTripINR: 30,
+    discountPercentage: 30,
   },
 ];
+
+export function getVehiclePerKmRate(vehicle: VehicleOption): number {
+  if (!vehicle) return 14;
+  const nameCat = `${vehicle.name} ${vehicle.category}`.toLowerCase();
+  if (nameCat.includes('tempo') || nameCat.includes('force')) {
+    return 30;
+  }
+  if (nameCat.includes('crysta') || nameCat.includes('hycross') || nameCat.includes('toyota')) {
+    return 25;
+  }
+  if (nameCat.includes('suv') || nameCat.includes('ertiga') || nameCat.includes('rumion') || nameCat.includes('xuv')) {
+    return 20;
+  }
+  if (nameCat.includes('sedan') || nameCat.includes('dzire') || nameCat.includes('aura') || nameCat.includes('etios')) {
+    return 14;
+  }
+  return vehicle.ratePerKmINR || 14;
+}
 
 export const TESTIMONIALS_DATA: Testimonial[] = [
   {

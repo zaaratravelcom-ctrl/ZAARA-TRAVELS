@@ -1,15 +1,34 @@
 import React, { useState } from 'react';
-import { BookingVoucherData, openPrintableVoucher } from '../utils/voucherGenerator';
-import { Download, MessageSquare, Calendar, Users, Car, ShieldCheck, CheckCircle2, Ticket, ArrowRight, Sparkles, Check, Clock, MapPin } from 'lucide-react';
+import { BookingVoucherData } from '../utils/voucherGenerator';
+import { CurrencyCode, FALLBACK_RATES_FROM_USD } from '../utils/currencyConverter';
+import { BookingHistoryWidget } from './BookingHistoryWidget';
+import { DocumentPreviewModal } from './DocumentPreviewModal';
+import { MessageSquare, Calendar, Users, Car, Ticket, ArrowRight, Sparkles, Check, Clock, MapPin, Trash2, Compass, Eye, FileText } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface MyBookingsViewProps {
   bookings: BookingVoucherData[];
+  currency?: CurrencyCode;
+  rates?: Record<CurrencyCode, number>;
+  onRemoveBooking?: (id: string) => void;
   onExploreTours: () => void;
 }
 
-export const MyBookingsView: React.FC<MyBookingsViewProps> = ({ bookings, onExploreTours }) => {
+export const MyBookingsView: React.FC<MyBookingsViewProps> = ({
+  bookings,
+  currency = 'USD',
+  rates = FALLBACK_RATES_FROM_USD,
+  onRemoveBooking,
+  onExploreTours,
+}) => {
   const [showSuccessToast, setShowSuccessToast] = useState<boolean>(true);
+  const [previewBooking, setPreviewBooking] = useState<BookingVoucherData | null>(null);
+  const [previewDocType, setPreviewDocType] = useState<'booking' | 'invoice'>('booking');
+
+  const openPreview = (b: BookingVoucherData, type: 'booking' | 'invoice' = 'booking') => {
+    setPreviewBooking(b);
+    setPreviewDocType(type);
+  };
 
   // Identify if any booking was added in the last session
   const newestBooking = bookings.length > 0 ? bookings[0] : null;
@@ -41,6 +60,14 @@ export const MyBookingsView: React.FC<MyBookingsViewProps> = ({ bookings, onExpl
           <ArrowRight className="w-4 h-4" />
         </button>
       </div>
+
+      {/* Booking History Dashboard Summary Widget */}
+      <BookingHistoryWidget
+        bookings={bookings}
+        currency={currency}
+        rates={rates}
+        onExploreTours={onExploreTours}
+      />
 
       {/* Success Notification Animation Banner */}
       <AnimatePresence>
@@ -79,10 +106,11 @@ export const MyBookingsView: React.FC<MyBookingsViewProps> = ({ bookings, onExpl
 
             <div className="flex items-center gap-3 z-10 w-full sm:w-auto">
               <button
-                onClick={() => openPrintableVoucher(newestBooking)}
-                className="flex-1 sm:flex-none bg-white text-emerald-900 font-extrabold px-4 py-2 rounded-xl text-xs shadow hover:bg-emerald-50 transition"
+                onClick={() => openPreview(newestBooking, 'booking')}
+                className="flex-1 sm:flex-none bg-white text-emerald-900 font-extrabold px-4 py-2 rounded-xl text-xs shadow hover:bg-emerald-50 transition flex items-center justify-center gap-1.5"
               >
-                View PDF Voucher
+                <Eye className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Preview Document</span>
               </button>
               <button
                 onClick={() => setShowSuccessToast(false)}
@@ -135,9 +163,25 @@ export const MyBookingsView: React.FC<MyBookingsViewProps> = ({ bookings, onExpl
                   <h3 className="text-lg font-bold text-slate-900 mt-2">{b.tourTitle}</h3>
                 </div>
 
-                <span className="bg-emerald-100 text-emerald-800 text-xs font-extrabold px-3 py-1 rounded-full uppercase">
-                  {b.paymentStatus}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className={`text-xs font-extrabold px-3 py-1 rounded-full uppercase border ${
+                    b.paymentStatus?.toUpperCase().includes('PENDING')
+                      ? 'bg-amber-100 text-amber-900 border-amber-300'
+                      : 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                  }`}>
+                    {b.paymentStatus}
+                  </span>
+
+                  {onRemoveBooking && (
+                    <button
+                      onClick={() => onRemoveBooking(b.bookingId)}
+                      title="Remove Booking"
+                      className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs sm:text-sm text-slate-600">
@@ -163,6 +207,13 @@ export const MyBookingsView: React.FC<MyBookingsViewProps> = ({ bookings, onExpl
                   <span><strong>Vehicle:</strong> {b.vehicleType}</span>
                 </div>
 
+                {(b.guideLanguage || !b.tourTitle?.toLowerCase().includes('cab')) && (
+                  <div className="flex items-center gap-2">
+                    <Compass className="w-4 h-4 text-indigo-600 shrink-0" />
+                    <span><strong>Guide Language:</strong> {b.guideLanguage || 'English'}</span>
+                  </div>
+                )}
+
                 {b.pickupLocation && (
                   <div className="md:col-span-2 flex items-start gap-2 text-slate-700 bg-slate-50 p-2 rounded-lg border border-slate-200">
                     <MapPin className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
@@ -176,13 +227,23 @@ export const MyBookingsView: React.FC<MyBookingsViewProps> = ({ bookings, onExpl
                   Total Amount: <strong className="text-slate-900 text-base">₹{b.totalAmountINR.toLocaleString('en-IN')}</strong> (~${b.totalAmountUSD} USD)
                 </div>
 
-                <div className="flex items-center gap-3 w-full sm:w-auto">
+                <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
                   <button
-                    onClick={() => openPrintableVoucher(b)}
-                    className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 text-white font-bold px-4 py-2.5 rounded-xl text-xs transition"
+                    onClick={() => openPreview(b, 'booking')}
+                    className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold px-4 py-2 rounded-xl text-xs transition shadow-sm"
+                    title="Preview Official Booking Voucher Document"
                   >
-                    <Download className="w-4 h-4 text-amber-400" />
-                    <span>Download / Print PDF Voucher</span>
+                    <Eye className="w-3.5 h-3.5 text-slate-950" />
+                    <span>Preview Voucher</span>
+                  </button>
+
+                  <button
+                    onClick={() => openPreview(b, 'invoice')}
+                    className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white font-bold px-4 py-2 rounded-xl text-xs transition"
+                    title="Preview Official GST Tax Invoice Document"
+                  >
+                    <FileText className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Preview Tax Invoice</span>
                   </button>
 
                   <a
@@ -191,10 +252,10 @@ export const MyBookingsView: React.FC<MyBookingsViewProps> = ({ bookings, onExpl
                     )}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2.5 rounded-xl text-xs transition"
+                    className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-2 rounded-xl text-xs transition"
                   >
-                    <MessageSquare className="w-4 h-4 fill-current" />
-                    <span>WhatsApp Support</span>
+                    <MessageSquare className="w-3.5 h-3.5 fill-current" />
+                    <span>WhatsApp</span>
                   </a>
                 </div>
               </div>
@@ -202,6 +263,14 @@ export const MyBookingsView: React.FC<MyBookingsViewProps> = ({ bookings, onExpl
           ))}
         </div>
       )}
+
+      {/* Official Document Live Preview Modal */}
+      <DocumentPreviewModal
+        isOpen={!!previewBooking}
+        onClose={() => setPreviewBooking(null)}
+        booking={previewBooking}
+        defaultDocType={previewDocType}
+      />
     </motion.div>
   );
 };

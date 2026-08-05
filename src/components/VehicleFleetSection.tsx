@@ -1,6 +1,7 @@
 import React from 'react';
 import { VEHICLES_DATA } from '../data/vehiclesData';
 import { Car, ShieldCheck, CheckCircle2, MessageSquare, Users, Briefcase, Sparkles, Award } from 'lucide-react';
+import { OfferBadge } from './OfferBadge';
 
 interface VehicleFleetSectionProps {
   currency: 'INR' | 'USD';
@@ -14,7 +15,7 @@ export const VehicleFleetSection: React.FC<VehicleFleetSectionProps> = ({ curren
         {/* Section Header */}
         <div className="text-center max-w-3xl mx-auto space-y-3">
           <div className="inline-flex items-center gap-1.5 bg-sky-100 text-sky-800 text-xs font-extrabold px-3 py-1 rounded-full uppercase tracking-wider">
-            <Car className="w-3.5 h-3.5 text-sky-600" /> Official Private Chauffeur Fleet
+            <Car className="w-3.5 h-3.5 text-sky-600" /> Official Private Fleet & Drivers
           </div>
           <h2 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">
             Private Car & Driver Services across India
@@ -25,7 +26,7 @@ export const VehicleFleetSection: React.FC<VehicleFleetSectionProps> = ({ curren
         </div>
 
         {/* Vehicles Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {VEHICLES_DATA.map((v) => {
             const priceText = currency === 'INR'
               ? `₹${v.ratePerDayINR.toLocaleString('en-IN')}`
@@ -43,6 +44,11 @@ export const VehicleFleetSection: React.FC<VehicleFleetSectionProps> = ({ curren
                     alt={v.name}
                     className="w-full h-full object-cover group-hover:scale-105 transition duration-500 opacity-90"
                   />
+                  {(v.discountPercentage || v.offerTag) && (
+                    <div className="absolute top-3 left-3 z-10">
+                      <OfferBadge discountPercentage={v.discountPercentage} offerTag={v.offerTag} />
+                    </div>
+                  )}
                   <div className="absolute top-3 right-3 bg-slate-900/90 text-white text-xs font-bold px-3 py-1 rounded-full backdrop-blur-sm">
                     {v.category}
                   </div>
@@ -118,7 +124,7 @@ export const VehicleFleetSection: React.FC<VehicleFleetSectionProps> = ({ curren
               <Award className="w-5 h-5" />
             </div>
             <div>
-              <strong className="text-white block font-bold">Uniform Commercial Chauffeurs</strong>
+              <strong className="text-white block font-bold">Uniformed Professional Drivers</strong>
               <span className="text-slate-400 text-xs">Punctual, background-verified & courteous drivers</span>
             </div>
           </div>

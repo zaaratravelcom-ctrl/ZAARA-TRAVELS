@@ -5,9 +5,10 @@ import { ZaaraLogo } from './ZaaraLogo';
 interface FooterProps {
   setActiveTab: (tab: string) => void;
   onOpenAIPlanner: () => void;
+  onOpenLetterhead?: () => void;
 }
 
-export const Footer: React.FC<FooterProps> = ({ setActiveTab, onOpenAIPlanner }) => {
+export const Footer: React.FC<FooterProps> = ({ setActiveTab, onOpenAIPlanner, onOpenLetterhead }) => {
   return (
     <footer className="bg-slate-950 text-slate-300 pt-16 pb-12 border-t border-slate-800">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
@@ -195,10 +196,37 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab, onOpenAIPlanner })
               <li>Airport Pickup & Drop-off</li>
               <li>
                 <button onClick={() => { setActiveTab('fleet'); window.scrollTo(0,0); }} className="hover:text-amber-400 text-sky-400 font-semibold transition">
-                  Private Car & Chauffeur
+                  Private Car & Driver Service
                 </button>
               </li>
               <li>Licensed Tour Guides</li>
+              <li className="pt-2 border-t border-slate-800/80">
+                <div className="font-bold text-[11px] text-amber-400 uppercase tracking-wider mb-1.5">Legal & Policies</div>
+                <div className="space-y-1.5">
+                  <div>
+                    <button onClick={() => { setActiveTab('privacy'); window.scrollTo(0,0); }} className="hover:text-amber-400 text-slate-400 transition">
+                      Privacy Policy
+                    </button>
+                  </div>
+                  <div>
+                    <button onClick={() => { setActiveTab('terms'); window.scrollTo(0,0); }} className="hover:text-amber-400 text-amber-300 font-bold transition">
+                      Terms & Conditions
+                    </button>
+                  </div>
+                  <div>
+                    <button onClick={() => { setActiveTab('contact'); window.scrollTo(0,0); }} className="hover:text-amber-400 text-slate-400 transition">
+                      Contact Us
+                    </button>
+                  </div>
+                </div>
+              </li>
+              {onOpenLetterhead && (
+                <li>
+                  <button onClick={onOpenLetterhead} className="hover:text-amber-400 text-amber-400 font-bold flex items-center gap-1 transition">
+                    <span>📄 Official Letterhead Generator</span>
+                  </button>
+                </li>
+              )}
             </ul>
           </div>
 
@@ -216,11 +244,28 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab, onOpenAIPlanner })
 
               <div className="flex items-start gap-2.5">
                 <Phone className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-                <div>
-                  <div className="font-semibold text-white">Direct / WhatsApp:</div>
-                  <a href="https://wa.me/919933992786" target="_blank" rel="noreferrer" className="text-amber-400 hover:underline">
-                    +91 99339 92786
-                  </a>
+                <div className="space-y-1">
+                  <div className="font-semibold text-white">Direct Phones & WhatsApp:</div>
+                  <div className="space-y-0.5 text-[11px] sm:text-xs">
+                    <div>
+                      <span className="text-slate-400">Primary (WA): </span>
+                      <a href="https://wa.me/919933992786" target="_blank" rel="noreferrer" className="text-amber-400 font-bold hover:underline">
+                        +91 99339 92786
+                      </a>
+                    </div>
+                    <div>
+                      <span className="text-slate-400">Secondary: </span>
+                      <a href="tel:+919932999786" className="text-amber-300 font-bold hover:underline">
+                        +91 99329 99786
+                      </a>
+                    </div>
+                    <div>
+                      <span className="text-slate-400">Office Desk: </span>
+                      <a href="tel:+01169296175" className="text-sky-300 font-bold hover:underline">
+                        +011 69296175
+                      </a>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -254,54 +299,6 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab, onOpenAIPlanner })
           </div>
         </div>
 
-        {/* Global Languages Section at Footer Bottom */}
-        <div className="py-6 border-b border-slate-800">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mb-3">
-            <div className="flex items-center gap-2 text-xs font-bold text-amber-400">
-              <Globe className="w-4 h-4 text-sky-400" />
-              <span>Select Website Language:</span>
-            </div>
-            <span className="text-[11px] text-slate-500">Auto-translates all tour details, prices & itineraries</span>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2 text-xs">
-            {[
-              { code: 'en', name: 'English', flag: '🇺🇸' },
-              { code: 'hi', name: 'हिंदी (Hindi)', flag: '🇮🇳' },
-              { code: 'fr', name: 'Français (French)', flag: '🇫🇷' },
-              { code: 'de', name: 'Deutsch (German)', flag: '🇩🇪' },
-              { code: 'es', name: 'Español (Spanish)', flag: '🇪🇸' },
-              { code: 'ja', name: '日本語 (Japanese)', flag: '🇯🇵' },
-              { code: 'it', name: 'Italiano (Italian)', flag: '🇮🇹' },
-              { code: 'ru', name: 'Русский (Russian)', flag: '🇷🇺' },
-              { code: 'ar', name: 'العربية (Arabic)', flag: '🇸🇦' },
-              { code: 'zh-CN', name: '中文 (Chinese)', flag: '🇨🇳' },
-              { code: 'ko', name: '한국어 (Korean)', flag: '🇰🇷' },
-              { code: 'pt', name: 'Português (Portuguese)', flag: '🇵🇹' },
-            ].map((lang) => (
-              <button
-                key={lang.code}
-                onClick={() => {
-                  const domain = window.location.hostname;
-                  const cookieValue = `/en/${lang.code}`;
-                  document.cookie = `googtrans=${cookieValue}; path=/; domain=${domain}`;
-                  document.cookie = `googtrans=${cookieValue}; path=/;`;
-                  const selectElem = document.querySelector('.goog-te-combo') as HTMLSelectElement | null;
-                  if (selectElem) {
-                    selectElem.value = lang.code;
-                    selectElem.dispatchEvent(new Event('change'));
-                  } else {
-                    window.location.reload();
-                  }
-                }}
-                className="flex items-center gap-2 p-2 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white transition text-left"
-              >
-                <span className="text-base leading-none">{lang.flag}</span>
-                <span className="text-[11px] font-semibold truncate">{lang.name}</span>
-              </button>
-            ))}
-          </div>
-        </div>
 
         {/* Bottom Rights & GST */}
         <div className="pt-8 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-slate-500">
@@ -320,8 +317,16 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab, onOpenAIPlanner })
             <span>•</span>
             <span>GSTIN: 19ACUPH2897Q2ZA</span>
             <span>•</span>
-            <button onClick={() => { setActiveTab('contact'); window.scrollTo(0,0); }} className="hover:text-slate-300">
-              Terms & Support
+            <button onClick={() => { setActiveTab('privacy'); window.scrollTo(0,0); }} className="hover:text-amber-400 transition">
+              Privacy Policy
+            </button>
+            <span>•</span>
+            <button onClick={() => { setActiveTab('terms'); window.scrollTo(0,0); }} className="hover:text-amber-400 text-slate-300 font-bold transition">
+              Terms & Conditions
+            </button>
+            <span>•</span>
+            <button onClick={() => { setActiveTab('contact'); window.scrollTo(0,0); }} className="hover:text-amber-400 transition">
+              Contact Us
             </button>
           </div>
         </div>

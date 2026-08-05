@@ -63,6 +63,7 @@ export async function sendBookingConfirmationEmail(booking: BookingEmailPayload)
 *Travel Date:* ${booking.travelDate}
 *Pickup Time:* ${booking.pickupTime || '06:00 AM'}
 *Pickup Point:* ${booking.pickupLocation || 'Delhi Hotel / Airport'}
+*Guide Language:* ${booking.guideLanguage || 'English'}
 *Vehicle:* ${booking.vehicleType}
 *Total Payable:* ₹${booking.totalAmountINR.toLocaleString('en-IN')} ($${booking.totalAmountUSD} USD)
 *Payment Method:* ${booking.paymentMethod}
@@ -85,7 +86,7 @@ Hello Zaara Travels, new booking confirmed! PDF Voucher & Booking transmitted to
   if (emailjsServiceId && emailjsTemplateId && emailjsPublicKey) {
     try {
       console.log('✉️ Invoking EmailJS API via @emailjs/browser SDK...');
-      const templateParams = {
+      const templateParams: Record<string, any> = {
         to_name: booking.guestName,
         to_email: booking.guestEmail || ADMIN_EMAIL,
         admin_email: ADMIN_EMAIL,
@@ -102,14 +103,23 @@ Hello Zaara Travels, new booking confirmed! PDF Voucher & Booking transmitted to
         guest_phone: booking.guestPhone,
         special_requests: booking.specialRequests || 'None',
         reply_to: ADMIN_EMAIL,
-        pdf_attachment: pdfDataUri,
-        pdf_base64: pdfBase64,
         pdf_filename: fileName,
       };
 
-      const emailjsRes = await emailjs.send(emailjsServiceId, emailjsTemplateId, templateParams, emailjsPublicKey);
-      emailjsSuccess = true;
-      console.log('✅ EmailJS dispatch SUCCESSFUL!', emailjsRes.status, emailjsRes.text);
+      try {
+        const emailjsRes = await emailjs.send(emailjsServiceId, emailjsTemplateId, templateParams, emailjsPublicKey);
+        emailjsSuccess = true;
+        console.log('✅ EmailJS dispatch SUCCESSFUL!', emailjsRes.status, emailjsRes.text);
+      } catch (sendErr: any) {
+        if (sendErr?.status === 413 || sendErr?.text?.includes('50Kb')) {
+          console.warn('⚠️ EmailJS 50Kb size limit triggered. Retrying with text-only parameters...');
+          const emailjsRes = await emailjs.send(emailjsServiceId, emailjsTemplateId, templateParams, emailjsPublicKey);
+          emailjsSuccess = true;
+          console.log('✅ EmailJS fallback dispatch SUCCESSFUL!', emailjsRes.status, emailjsRes.text);
+        } else {
+          throw sendErr;
+        }
+      }
     } catch (err: any) {
       console.error('❌ EmailJS Delivery Error:', err);
       if (err && typeof err === 'object') {

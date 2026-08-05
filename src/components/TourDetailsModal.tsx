@@ -1,15 +1,28 @@
 import React, { useState } from 'react';
 import { TourPackage, VehicleOption } from '../types';
-import { X, Calendar, Users, Car, CheckCircle2, XCircle, ShieldCheck, CreditCard, MessageSquare, FileText, Star, Sparkles, MapPin, Building, ArrowRight, Check, User, ArrowLeft, Clock, Search, Navigation, Crosshair, Plane, Train, Hotel, Locate, Compass, Mail, Printer, Download } from 'lucide-react';
+import { X, Calendar, Users, Car, CheckCircle2, XCircle, ShieldCheck, CreditCard, MessageSquare, FileText, Star, Sparkles, MapPin, Building, ArrowRight, Check, User, ArrowLeft, Clock, Search, Navigation, Crosshair, Plane, Train, Hotel, Locate, Compass, Mail, Printer, Download, Banknote, Wallet, Smartphone, Globe } from 'lucide-react';
 import { VEHICLES_DATA } from '../data/vehiclesData';
 import { openPrintableVoucher } from '../utils/voucherGenerator';
+import { downloadBookingPDF } from '../utils/pdfGenerator';
 import { sendBookingConfirmationEmail } from '../utils/emailService';
-import { downloadBookingPDF, downloadTourItineraryPDF } from '../utils/pdfGenerator';
+import { DocumentPreviewModal } from './DocumentPreviewModal';
 import { CurrencyCode, formatConvertedPrice, FALLBACK_RATES_FROM_USD } from '../utils/currencyConverter';
-import { LiveRouteMap } from './LiveRouteMap';
-import { TourRouteLeafletMap } from './TourRouteLeafletMap';
 import { InteractiveMapPicker, POPULAR_DELHI_HOTSPOTS } from './InteractiveMapPicker';
 import { PickupTimePicker } from './PickupTimePicker';
+import { GooglePlacesInput } from './GooglePlacesInput';
+import { PaymentGatewayModal } from './PaymentGatewayModal';
+import { sanitizePhoneNumber, isValidPhoneNumber, handlePhoneKeyDown, PHONE_ERROR_MESSAGE } from '../utils/phoneValidation';
+
+export const GUIDE_LANGUAGES = [
+  'English',
+  'French',
+  'German',
+  'Italian',
+  'Russian',
+  'Spanish',
+  'Japanese',
+  'Portuguese'
+];
 
 // Delhi NCR Hotspot Coordinates & Presets for Search by Map
 const POPULAR_PICKUP_LOCATIONS = [
@@ -45,6 +58,8 @@ export const TourDetailsModal: React.FC<TourDetailsModalProps> = ({
   const [activeSubTab, setActiveSubTab] = useState<'itinerary' | 'map' | 'book'>('itinerary');
   const [itineraryMapType, setItineraryMapType] = useState<'leaflet' | 'schematic'>('leaflet');
   const [bookingStep, setBookingStep] = useState<number>(1);
+  const [showPreviewModal, setShowPreviewModal] = useState<boolean>(false);
+  const [previewBookingData, setPreviewBookingData] = useState<any>(null);
   
   // Booking Form State
   const [travelDate, setTravelDate] = useState<string>(() => {
@@ -54,18 +69,24 @@ export const TourDetailsModal: React.FC<TourDetailsModalProps> = ({
   });
   const [pickupTime, setPickupTime] = useState<string>('06:00 AM');
   const [pickupLocation, setPickupLocation] = useState<string>('Indira Gandhi Int\'l Airport (DEL) - Terminal 3');
+  const [isPickupSelectedFromMaps, setIsPickupSelectedFromMaps] = useState<boolean>(true);
   const [showMapPicker, setShowMapPicker] = useState<boolean>(false);
   const [mapSearchQuery, setMapSearchQuery] = useState<string>('');
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('All');
 
   const [adults, setAdults] = useState<number>(2);
   const [children, setChildren] = useState<number>(0);
-  const [selectedVehicle, setSelectedVehicle] = useState<string>('sedan-dzire');
-  const [hotelCategory, setHotelCategory] = useState<string>('4-star-heritage');
+  const [guideLanguage, setGuideLanguage] = useState<string>('English');
+  const [selectedVehicle, setSelectedVehicle] = useState<string>('sedan-prime');
+  const [selectedAccommodation, setSelectedAccommodation] = useState<'none' | '3star' | '4star' | '5star'>('4star');
   const [guestName, setGuestName] = useState<string>('');
   const [guestPhone, setGuestPhone] = useState<string>('');
   const [guestEmail, setGuestEmail] = useState<string>('');
   const [specialRequests, setSpecialRequests] = useState<string>('');
+
+  // Payment Gateway Modal State
+  const [isPaymentGatewayOpen, setIsPaymentGatewayOpen] = useState<boolean>(false);
+  const [pendingBookingData, setPendingBookingData] = useState<any>(null);
 
   const handleSelectQuickDate = (daysInFuture: number) => {
     const d = new Date();
@@ -79,16 +100,19 @@ export const TourDetailsModal: React.FC<TourDetailsModalProps> = ({
         (position) => {
           const lat = position.coords.latitude.toFixed(4);
           const lng = position.coords.longitude.toFixed(4);
-          setPickupLocation(`Live GPS Pinpoint (Lat: ${lat}, Lng: ${lng}) - Delhi NCR Chauffeur Pickup`);
+          setPickupLocation(`Live GPS Pinpoint (Lat: ${lat}, Lng: ${lng}) - Delhi NCR Private Driver Pickup`);
+          setIsPickupSelectedFromMaps(true);
           setShowMapPicker(false);
         },
         () => {
-          setPickupLocation('Aerocity Hotel Zone / Delhi NCR Chauffeur Pickup');
+          setPickupLocation('Aerocity Hotel Zone / Delhi NCR Private Driver Pickup');
+          setIsPickupSelectedFromMaps(true);
           setShowMapPicker(false);
         }
       );
     } else {
       setPickupLocation('Delhi Hotel / Airport Terminal Pickup');
+      setIsPickupSelectedFromMaps(true);
       setShowMapPicker(false);
     }
   };
@@ -124,7 +148,7 @@ export const TourDetailsModal: React.FC<TourDetailsModalProps> = ({
 
   // Payment Options
   const [paymentOption, setPaymentOption] = useState<'full' | 'deposit' | 'arrival'>('full');
-  const [paymentGateway, setPaymentGateway] = useState<'razorpay' | 'stripe' | 'paypal' | 'upi'>('razorpay');
+  const [paymentGateway, setPaymentGateway] = useState<'payu' | 'paypal' | 'upi'>('payu');
 
   const [isSubmitted, setIsSubmitted] = useState<boolean>(false);
   const [lastBookingRef, setLastBookingRef] = useState<any>(null);
@@ -132,28 +156,85 @@ export const TourDetailsModal: React.FC<TourDetailsModalProps> = ({
   // Price Calculations (USD as base calculation anchor)
   const basePriceUSD = tour.priceFromUSD;
   const basePriceINR = tour.priceFromINR;
-  const rawSubtotalUSD = basePriceUSD * adults;
+  const rawSubtotalUSD = (basePriceUSD * adults) + (basePriceUSD * 0.6 * children);
+  const rawSubtotalINR = (basePriceINR * adults) + (basePriceINR * 0.6 * children);
   
-  // Add vehicle add-on fee if Innova or Tempo
+  // Extract nights for internal accommodation calculation (3-Star: 3000, 4-Star: 5000, 5-Star: 10000)
+  const nightsMatch = tour.duration.match(/(\d+)\s*Nights?/i);
+  const nights = nightsMatch
+    ? parseInt(nightsMatch[1])
+    : tour.duration.includes('3 Days')
+    ? 2
+    : tour.duration.includes('4 Days')
+    ? 3
+    : tour.duration.includes('6 Days')
+    ? 5
+    : tour.duration.includes('8 Days')
+    ? 7
+    : tour.duration.includes('10 Days')
+    ? 9
+    : tour.duration.includes('5 Days')
+    ? 4
+    : tour.duration.includes('7 Days')
+    ? 6
+    : 0;
+
+  // Selected Accommodation rate & addon per night
+  const accommodationRateINR = nights > 0
+    ? (selectedAccommodation === '3star' ? 3000 : selectedAccommodation === '4star' ? 5000 : selectedAccommodation === '5star' ? 10000 : 0)
+    : 0;
+  const accommodationRateUSD = nights > 0
+    ? (selectedAccommodation === '3star' ? 36 : selectedAccommodation === '4star' ? 60 : selectedAccommodation === '5star' ? 120 : 0)
+    : 0;
+
+  const accommodationAddonINR = accommodationRateINR * nights;
+  const accommodationAddonUSD = accommodationRateUSD * nights;
+
+  const selectedAccommodationLabel = nights > 0
+    ? (selectedAccommodation === 'none'
+        ? 'Without Accommodation'
+        : selectedAccommodation === '3star'
+        ? '3-Star Hotel Accommodation'
+        : selectedAccommodation === '4star'
+        ? '4-Star Hotel Accommodation'
+        : '5-Star Luxury Accommodation')
+    : 'Day Tour (No Night Stay)';
+
+  // Add vehicle add-on fee if Ertiga/Innova or Tempo
   let vehicleAddonUSD = 0;
-  if (selectedVehicle === 'suv-innova') vehicleAddonUSD = 20;
-  if (selectedVehicle === 'tempo-traveller') vehicleAddonUSD = 50;
+  let vehicleAddonINR = 0;
+  if (selectedVehicle === 'suv-ertiga-innova') {
+    vehicleAddonUSD = 30;
+    vehicleAddonINR = 2500;
+  } else if (selectedVehicle === 'urbania-tempo') {
+    vehicleAddonUSD = 80;
+    vehicleAddonINR = 6500;
+  }
 
-  let hotelAddonUSD = 0;
-  if (hotelCategory === '5-star-luxury') hotelAddonUSD = 45 * adults;
-
-  const grossTotalUSD = rawSubtotalUSD + vehicleAddonUSD + hotelAddonUSD;
+  const grossTotalUSD = rawSubtotalUSD + vehicleAddonUSD + accommodationAddonUSD;
+  const grossTotalINR = rawSubtotalINR + vehicleAddonINR + accommodationAddonINR;
   const discountAmountUSD = Math.round((grossTotalUSD * appliedDiscountPercent) / 100);
+  const discountAmountINR = Math.round((grossTotalINR * appliedDiscountPercent) / 100);
   const finalTotalUSD = Math.max(0, grossTotalUSD - discountAmountUSD);
+  const finalTotalINR = Math.max(0, grossTotalINR - discountAmountINR);
 
-  // Formatted price string in current currency
-  const formattedSubtotal = formatConvertedPrice(rawSubtotalUSD, basePriceINR * adults, currency, rates);
-  const formattedVehicleAddon = vehicleAddonUSD > 0 ? formatConvertedPrice(vehicleAddonUSD, vehicleAddonUSD * 83.5, currency, rates) : 'Included';
-  const formattedDiscount = formatConvertedPrice(discountAmountUSD, discountAmountUSD * 83.5, currency, rates);
-  const formattedFinalTotal = formatConvertedPrice(finalTotalUSD, finalTotalUSD * (rates.INR || 83.5), currency, rates);
+  // Formatted price strings in current currency
+  const formattedSubtotal = formatConvertedPrice(rawSubtotalUSD, rawSubtotalINR, currency, rates);
+  const formattedVehicleAddon = vehicleAddonUSD > 0 ? formatConvertedPrice(vehicleAddonUSD, vehicleAddonINR, currency, rates) : 'Included';
+  const formattedAccommodation = accommodationAddonINR > 0
+    ? formatConvertedPrice(accommodationAddonUSD, accommodationAddonINR, currency, rates)
+    : 'Included / No Extra Charge';
+  const formattedDiscount = formatConvertedPrice(discountAmountUSD, discountAmountINR, currency, rates);
+  const formattedFinalTotal = formatConvertedPrice(finalTotalUSD, finalTotalINR, currency, rates);
+
+  // GST 5% breakdown for Tour Booking
+  const tourAmountINR = Math.round(finalTotalINR / 1.05);
+  const gstINR = finalTotalINR - tourAmountINR;
+  const tourAmountUSD = Math.round(finalTotalUSD / 1.05);
+  const gstUSD = finalTotalUSD - tourAmountUSD;
 
   // Convert for Voucher Display
-  const finalINR = Math.round(finalTotalUSD * (rates.INR || 83.5));
+  const finalINR = Math.round(finalTotalINR);
   const finalUSD = Math.round(finalTotalUSD);
 
   const handleApplyCoupon = () => {
@@ -169,36 +250,7 @@ export const TourDetailsModal: React.FC<TourDetailsModalProps> = ({
     }
   };
 
-  const handleConfirmBooking = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!guestName || !guestPhone) {
-      alert('Please provide your name and phone number for booking confirmation.');
-      return;
-    }
-
-    const bookingId = 'ZT-' + Math.floor(100000 + Math.random() * 900000);
-    const vehicleObj = VEHICLES_DATA.find((v) => v.id === selectedVehicle);
-
-    const bookingRecord = {
-      bookingId,
-      guestName,
-      guestPhone,
-      guestEmail: guestEmail || 'guest@zaaratravel.com',
-      tourTitle: tour.title,
-      travelDate,
-      pickupTime,
-      pickupLocation,
-      travelers: { adults, children },
-      vehicleType: vehicleObj ? vehicleObj.name : 'Private AC Vehicle',
-      hotelOption: hotelCategory === '5-star-luxury' ? '5-Star Luxury Hotels' : '4-Star Boutique & Heritage Haveli',
-      totalAmountINR: finalINR,
-      totalAmountUSD: finalUSD,
-      paymentMethod: paymentOption === 'arrival' ? 'Pay Driver on Arrival' : `${paymentGateway.toUpperCase()} (${paymentOption === 'deposit' ? '25% Deposit' : 'Paid in Full'})`,
-      paymentStatus: paymentOption === 'arrival' ? 'PAY ON ARRIVAL' : 'PAID IN FULL',
-      bookingDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-      specialRequests,
-    };
-
+  const executeFinalBooking = async (bookingRecord: any) => {
     try {
       // 1. Send confirmation email (with attached PDF data & WhatsApp dispatch payload)
       await sendBookingConfirmationEmail({
@@ -211,6 +263,10 @@ export const TourDetailsModal: React.FC<TourDetailsModalProps> = ({
         pickupTime: bookingRecord.pickupTime,
         pickupLocation: bookingRecord.pickupLocation,
         vehicleType: bookingRecord.vehicleType,
+        baseAmountINR: bookingRecord.baseAmountINR ?? Math.round(bookingRecord.totalAmountINR / 1.05),
+        gstAmountINR: bookingRecord.gstAmountINR ?? (bookingRecord.totalAmountINR - Math.round(bookingRecord.totalAmountINR / 1.05)),
+        baseAmountUSD: bookingRecord.baseAmountUSD ?? Math.round(bookingRecord.totalAmountUSD / 1.05),
+        gstAmountUSD: bookingRecord.gstAmountUSD ?? (bookingRecord.totalAmountUSD - Math.round(bookingRecord.totalAmountUSD / 1.05)),
         totalAmountINR: bookingRecord.totalAmountINR,
         totalAmountUSD: bookingRecord.totalAmountUSD,
         paymentMethod: bookingRecord.paymentMethod,
@@ -218,8 +274,8 @@ export const TourDetailsModal: React.FC<TourDetailsModalProps> = ({
         specialRequests: bookingRecord.specialRequests,
       });
 
-      // 2. Automatically generate and download PDF voucher for guest
-      downloadBookingPDF({
+      // 2. Automatically generate printable PDF voucher for guest
+      openPrintableVoucher({
         bookingId: bookingRecord.bookingId,
         guestName: bookingRecord.guestName,
         guestEmail: bookingRecord.guestEmail,
@@ -228,11 +284,20 @@ export const TourDetailsModal: React.FC<TourDetailsModalProps> = ({
         travelDate: bookingRecord.travelDate,
         pickupTime: bookingRecord.pickupTime,
         pickupLocation: bookingRecord.pickupLocation,
+        dropLocation: bookingRecord.dropLocation || 'Hotel / Airport Destination',
+        guideLanguage: bookingRecord.guideLanguage,
+        travelers: bookingRecord.travelers,
         vehicleType: bookingRecord.vehicleType,
+        hotelOption: bookingRecord.hotelOption,
+        baseAmountINR: bookingRecord.baseAmountINR ?? Math.round(bookingRecord.totalAmountINR / 1.05),
+        gstAmountINR: bookingRecord.gstAmountINR ?? (bookingRecord.totalAmountINR - Math.round(bookingRecord.totalAmountINR / 1.05)),
+        baseAmountUSD: bookingRecord.baseAmountUSD ?? Math.round(bookingRecord.totalAmountUSD / 1.05),
+        gstAmountUSD: bookingRecord.gstAmountUSD ?? (bookingRecord.totalAmountUSD - Math.round(bookingRecord.totalAmountUSD / 1.05)),
         totalAmountINR: bookingRecord.totalAmountINR,
         totalAmountUSD: bookingRecord.totalAmountUSD,
         paymentMethod: bookingRecord.paymentMethod,
         paymentStatus: bookingRecord.paymentStatus,
+        bookingDate: bookingRecord.bookingDate,
         specialRequests: bookingRecord.specialRequests,
       });
     } catch (err) {
@@ -243,14 +308,14 @@ export const TourDetailsModal: React.FC<TourDetailsModalProps> = ({
     setLastBookingRef(bookingRecord);
     setIsSubmitted(true);
 
-    // Auto launch WhatsApp notification dispatch tab
-    setTimeout(() => {
+       setTimeout(() => {
       const waText = `*CONFIRMED BOOKING VOUCHER - ZAARA TRAVELS*
 *Booking Ref:* ${bookingRecord.bookingId}
 *Guest Name:* ${bookingRecord.guestName}
 *Phone:* ${bookingRecord.guestPhone}
 *Tour:* ${bookingRecord.tourTitle}
 *Travel Date:* ${bookingRecord.travelDate}
+*Guide Language:* ${bookingRecord.guideLanguage || guideLanguage}
 *Vehicle:* ${bookingRecord.vehicleType}
 *Total Amount:* ₹${bookingRecord.totalAmountINR.toLocaleString('en-IN')} ($${bookingRecord.totalAmountUSD} USD)
 *Payment Method:* ${bookingRecord.paymentMethod}
@@ -261,7 +326,79 @@ Hello Zaara Travels, I completed my booking on the website! Please confirm drive
     }, 500);
   };
 
+  const handleConfirmBooking = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!guestName.trim() || !guestPhone.trim()) {
+      alert('Please fill in your Lead Guest Name and Mobile/WhatsApp number before proceeding.');
+      setBookingStep(2);
+      return;
+    }
+    if (!isValidPhoneNumber(guestPhone)) {
+      alert(PHONE_ERROR_MESSAGE);
+      setBookingStep(2);
+      return;
+    }
+
+    const bookingId = 'ZT-' + Math.floor(100000 + Math.random() * 900000);
+    const vehicleObj = VEHICLES_DATA.find((v) => v.id === selectedVehicle);
+
+    const bookingDataPayload = {
+      bookingId,
+      guestName,
+      guestPhone,
+      guestEmail: guestEmail || 'guest@zaaratravel.com',
+      tourTitle: tour.title,
+      travelDate,
+      pickupTime,
+      pickupLocation,
+      dropLocation: 'Hotel / Airport Destination',
+      guideLanguage,
+      vehicleType: vehicleObj ? vehicleObj.name : 'AC Sedan / Prime (Standard Included)',
+      hotelOption: nights > 0 ? selectedAccommodationLabel : 'Day Tour (No Night Stay)',
+      baseAmountINR: tourAmountINR,
+      gstAmountINR: gstINR,
+      baseAmountUSD: tourAmountUSD,
+      gstAmountUSD: gstUSD,
+      totalAmountINR: finalINR,
+      totalAmountUSD: finalUSD,
+      specialRequests,
+      travelers: { adults, children },
+      initialGateway: paymentOption === 'arrival' ? 'pay_on_arrival' : paymentGateway,
+      initialChoice: paymentOption === 'deposit' ? 'advance_25' : paymentOption === 'full' ? 'full' : 'arrival',
+    };
+
+    if (paymentOption === 'arrival') {
+      const confirmedRecord = {
+        ...bookingDataPayload,
+        paymentMethod: 'Pay on Arrival to Driver',
+        paymentStatus: 'Pending (Pay on Arrival)',
+        bookingDate: new Date().toLocaleDateString('en-GB'),
+      };
+      setBookingConfirmed(confirmedRecord);
+      setBookingStep(4);
+      await executeFinalBooking(confirmedRecord);
+    } else {
+      setPendingBookingData(bookingDataPayload);
+      setIsPaymentGatewayOpen(true);
+    }
+  };
+
+  const [bookingConfirmed, setBookingConfirmed] = useState<any>(null);
+
+  const handlePaymentConfirmed = async (confirmedRecord: any) => {
+    setIsPaymentGatewayOpen(false);
+    setBookingConfirmed(confirmedRecord);
+    setBookingStep(4);
+    await executeFinalBooking(confirmedRecord);
+  };
+
   const handleGenerateVoucher = () => {
+    if (lastBookingRef) {
+      openPrintableVoucher(lastBookingRef);
+    }
+  };
+
+  const handleDownloadPDFVoucher = () => {
     if (lastBookingRef) {
       downloadBookingPDF({
         bookingId: lastBookingRef.bookingId,
@@ -272,14 +409,18 @@ Hello Zaara Travels, I completed my booking on the website! Please confirm drive
         travelDate: lastBookingRef.travelDate,
         pickupTime: lastBookingRef.pickupTime,
         pickupLocation: lastBookingRef.pickupLocation,
+        dropLocation: lastBookingRef.dropLocation || 'Hotel / Airport Destination',
+        guideLanguage: lastBookingRef.guideLanguage,
+        travelers: lastBookingRef.travelers,
         vehicleType: lastBookingRef.vehicleType,
+        hotelOption: lastBookingRef.hotelOption,
         totalAmountINR: lastBookingRef.totalAmountINR,
         totalAmountUSD: lastBookingRef.totalAmountUSD,
         paymentMethod: lastBookingRef.paymentMethod,
         paymentStatus: lastBookingRef.paymentStatus,
+        bookingDate: lastBookingRef.bookingDate,
         specialRequests: lastBookingRef.specialRequests,
       });
-      openPrintableVoucher(lastBookingRef);
     }
   };
 
@@ -291,6 +432,7 @@ Hello Zaara Travels, I completed my booking on the website! Please confirm drive
 *Phone:* ${lastBookingRef.guestPhone}
 *Tour:* ${lastBookingRef.tourTitle}
 *Travel Date:* ${lastBookingRef.travelDate}
+*Guide Language:* ${lastBookingRef.guideLanguage || 'English'}
 *Travelers:* ${lastBookingRef.travelers.adults} Adults, ${lastBookingRef.travelers.children} Kids
 *Vehicle:* ${lastBookingRef.vehicleType}
 *Total Paid/Amount:* ₹${lastBookingRef.totalAmountINR.toLocaleString('en-IN')} (${lastBookingRef.paymentMethod})
@@ -317,6 +459,7 @@ BOOKING & TOUR DETAILS:
 - Travel Date: ${lastBookingRef.travelDate}
 - Pickup Time: ${lastBookingRef.pickupTime || '06:00 AM'}
 - Pickup Location: ${lastBookingRef.pickupLocation}
+- Guide Language: ${lastBookingRef.guideLanguage || 'English'}
 - Transport: ${lastBookingRef.vehicleType}
 - Total Amount: ₹${lastBookingRef.totalAmountINR.toLocaleString('en-IN')} ($${lastBookingRef.totalAmountUSD} USD)
 - Payment Option: ${lastBookingRef.paymentMethod} (${lastBookingRef.paymentStatus})
@@ -326,7 +469,7 @@ Please send driver assignment details and GST Tax Invoice.
 Zaara Travels Details:
 Website: www.zaaratravel.com
 Email: info@zaaratravel.com
-Phone/WhatsApp: +91 99339 92786
+Phone/WhatsApp: +91 99339 92786 / +91 99329 99786 | Office: +011 69296175
 GSTIN: 19ACUPH2897Q2ZA`;
 
     window.open(`mailto:info@zaaratravel.com,${encodeURIComponent(lastBookingRef.guestEmail)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_blank');
@@ -334,7 +477,7 @@ GSTIN: 19ACUPH2897Q2ZA`;
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6">
-      <div className="bg-white w-full max-w-4xl rounded-2xl shadow-2xl overflow-hidden border border-slate-200 my-auto flex flex-col max-h-[90vh]">
+      <div className="bg-white w-full max-w-4xl rounded-2xl shadow-2xl overflow-hidden border border-slate-200 my-auto flex flex-col max-h-[90vh] notranslate" translate="no">
         {/* Top Header */}
         <div className="bg-slate-900 text-white p-4 sm:p-6 flex items-start justify-between relative shrink-0">
           <div>
@@ -354,12 +497,12 @@ GSTIN: 19ACUPH2897Q2ZA`;
           <div className="flex items-center gap-2 shrink-0">
             <button
               type="button"
-              onClick={() => downloadTourItineraryPDF(tour, currency, rates)}
+              onClick={() => window.print()}
               className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs px-3.5 py-2 rounded-xl transition shadow flex items-center gap-1.5 border border-amber-300"
-              title="Download official printable PDF itinerary"
+              title="Print official itinerary"
             >
               <Printer className="w-4 h-4" />
-              <span className="hidden sm:inline">Print PDF Itinerary</span>
+              <span className="hidden sm:inline">Print Itinerary</span>
             </button>
 
             <button
@@ -387,18 +530,6 @@ GSTIN: 19ACUPH2897Q2ZA`;
           </button>
           <button
             type="button"
-            onClick={() => setActiveSubTab('map')}
-            className={`flex-1 min-w-[150px] py-3 text-xs sm:text-sm font-bold border-b-2 text-center transition flex items-center justify-center gap-1.5 ${
-              activeSubTab === 'map'
-                ? 'border-sky-600 text-sky-700 bg-white'
-                : 'border-transparent text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Compass className="w-4 h-4 text-sky-600" />
-            <span>🗺️ Tour Route Map</span>
-          </button>
-          <button
-            type="button"
             onClick={() => setActiveSubTab('book')}
             className={`flex-1 min-w-[160px] py-3 text-xs sm:text-sm font-bold border-b-2 text-center transition flex items-center justify-center gap-1.5 ${
               activeSubTab === 'book'
@@ -415,55 +546,6 @@ GSTIN: 19ACUPH2897Q2ZA`;
         <div className="p-4 sm:p-6 overflow-y-auto space-y-6 flex-1">
           {activeSubTab === 'itinerary' && (
             <div className="space-y-6">
-              {/* Interactive Route Map Selection Header */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between flex-wrap gap-2">
-                  <div className="flex items-center gap-2">
-                    <MapPin className="w-4 h-4 text-sky-600" />
-                    <h3 className="font-bold text-slate-900 text-sm">Interactive Tour Route Visualizer</h3>
-                  </div>
-                  <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs">
-                    <button
-                      type="button"
-                      onClick={() => setItineraryMapType('leaflet')}
-                      className={`px-3 py-1 rounded-lg font-bold transition flex items-center gap-1.5 ${
-                        itineraryMapType === 'leaflet'
-                          ? 'bg-sky-600 text-white shadow'
-                          : 'text-slate-600 hover:text-slate-900'
-                      }`}
-                    >
-                      <Compass className="w-3.5 h-3.5" />
-                      <span>Leaflet GIS Map</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setItineraryMapType('schematic')}
-                      className={`px-3 py-1 rounded-lg font-bold transition ${
-                        itineraryMapType === 'schematic'
-                          ? 'bg-sky-600 text-white shadow'
-                          : 'text-slate-600 hover:text-slate-900'
-                      }`}
-                    >
-                      Schematic View
-                    </button>
-                  </div>
-                </div>
-
-                {itineraryMapType === 'leaflet' ? (
-                  <TourRouteLeafletMap
-                    cities={tour.cities}
-                    itinerary={tour.itinerary}
-                    tourTitle={tour.title}
-                  />
-                ) : (
-                  <LiveRouteMap
-                    cities={tour.cities}
-                    itinerary={tour.itinerary}
-                    tourTitle={tour.title}
-                  />
-                )}
-              </div>
-
               {/* Printable PDF Banner Callout */}
               <div className="bg-gradient-to-r from-slate-900 via-sky-950 to-slate-900 border border-slate-800 text-white rounded-xl p-4 flex items-center justify-between flex-wrap gap-3 shadow-md">
                 <div className="space-y-0.5">
@@ -477,11 +559,11 @@ GSTIN: 19ACUPH2897Q2ZA`;
                 </div>
                 <button
                   type="button"
-                  onClick={() => downloadTourItineraryPDF(tour, currency, rates)}
+                  onClick={() => window.print()}
                   className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black px-4 py-2.5 rounded-xl text-xs transition shadow-md flex items-center gap-2 border border-amber-300 shrink-0"
                 >
                   <FileText className="w-4 h-4" />
-                  <span>Download PDF Itinerary</span>
+                  <span>Print Itinerary</span>
                 </button>
               </div>
 
@@ -555,11 +637,11 @@ GSTIN: 19ACUPH2897Q2ZA`;
               <div className="pt-2 text-center flex items-center justify-center gap-3 flex-wrap">
                 <button
                   type="button"
-                  onClick={() => downloadTourItineraryPDF(tour, currency, rates)}
+                  onClick={() => window.print()}
                   className="bg-slate-800 hover:bg-slate-700 text-slate-100 font-extrabold px-6 py-3 rounded-xl shadow-md transition text-xs inline-flex items-center gap-2 border border-slate-700"
                 >
                   <Printer className="w-4 h-4 text-sky-400" />
-                  <span>Download PDF Itinerary</span>
+                  <span>Print Itinerary</span>
                 </button>
                 <button
                   type="button"
@@ -573,43 +655,69 @@ GSTIN: 19ACUPH2897Q2ZA`;
             </div>
           )}
 
-          {/* Map Tab View */}
-          {activeSubTab === 'map' && (
-            <div className="space-y-4">
-              <TourRouteLeafletMap
-                cities={tour.cities}
-                itinerary={tour.itinerary}
-                tourTitle={tour.title}
-              />
-
-              <div className="flex items-center justify-between gap-3 pt-2 bg-slate-50 p-4 rounded-xl border border-slate-200">
-                <div className="text-xs text-slate-600">
-                  📍 Visited Cities: <strong className="text-slate-900">{tour.cities.join(' • ')}</strong>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setActiveSubTab('book')}
-                  className="bg-sky-600 hover:bg-sky-500 text-white font-extrabold px-5 py-2.5 rounded-xl text-xs transition shadow flex items-center gap-1.5 shrink-0"
-                >
-                  <span>Book This Tour Package</span>
-                  <ArrowRight className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          )}
-
           {activeSubTab === 'book' && (
             <div>
               {isSubmitted ? (
-                <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-6 text-center space-y-4">
-                  <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto text-3xl font-bold">
-                    ✓
+                <div className={`${lastBookingRef?.paymentStatus?.toUpperCase().includes('PENDING') ? 'bg-amber-50 border-amber-200' : 'bg-emerald-50 border-emerald-200'} border rounded-2xl p-6 text-center space-y-4`}>
+                  <div className={`w-16 h-16 ${lastBookingRef?.paymentStatus?.toUpperCase().includes('PENDING') ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-600'} rounded-full flex items-center justify-center mx-auto text-3xl font-bold`}>
+                    {lastBookingRef?.paymentStatus?.toUpperCase().includes('PENDING') ? '⏳' : '✓'}
                   </div>
-                  <h3 className="text-2xl font-black text-slate-900">Booking Confirmed!</h3>
+                  <h3 className="text-2xl font-black text-slate-900">
+                    {lastBookingRef?.paymentStatus?.toUpperCase().includes('PENDING') ? 'Booking Received (Pending Payment)' : 'Booking Confirmed!'}
+                  </h3>
                   <p className="text-sm text-slate-700 max-w-md mx-auto">
                     Thank you, <strong>{guestName}</strong>! Your tour reference number is{' '}
                     <strong className="text-sky-700">{lastBookingRef?.bookingId}</strong>.
                   </p>
+                  <div>
+                    <span className={`inline-block font-black text-xs px-3 py-1 rounded-full uppercase border ${
+                      lastBookingRef?.paymentStatus?.toUpperCase().includes('PENDING') 
+                        ? 'bg-amber-100 text-amber-900 border-amber-300' 
+                        : 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                    }`}>
+                      Payment Status: {lastBookingRef?.paymentStatus}
+                    </span>
+                  </div>
+
+                  {/* Tour Booking Breakdown & GST Card */}
+                  {lastBookingRef && (
+                    <div className="bg-white border border-emerald-200 rounded-2xl p-5 text-left text-xs space-y-3 shadow-sm max-w-xl mx-auto">
+                      <div className="flex justify-between border-b border-slate-100 pb-2">
+                        <span className="font-bold text-slate-500">Booking Reference:</span>
+                        <span className="font-extrabold text-amber-700 font-mono text-sm">#{lastBookingRef.bookingId}</span>
+                      </div>
+                      <div className="flex justify-between border-b border-slate-100 pb-2">
+                        <span className="font-bold text-slate-500">Tour Package:</span>
+                        <span className="font-extrabold text-slate-900">{lastBookingRef.tourTitle}</span>
+                      </div>
+                      <div className="flex justify-between border-b border-slate-100 pb-2">
+                        <span className="font-bold text-slate-500">Travel Date & Pickup:</span>
+                        <span className="font-bold text-slate-800">{lastBookingRef.travelDate} ({lastBookingRef.pickupTime || '06:00 AM'})</span>
+                      </div>
+
+                      {/* GST & Financial Breakdown */}
+                      <div className="bg-slate-50 rounded-xl p-3 border border-slate-200 space-y-1.5">
+                        <div className="flex justify-between text-slate-600">
+                          <span>Base Amount:</span>
+                          <span className="font-bold text-slate-900">
+                            ₹{(lastBookingRef.baseAmountINR ?? Math.round(lastBookingRef.totalAmountINR / 1.05)).toLocaleString('en-IN')}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-slate-600">
+                          <span>Goods & Services Tax (GST @ 5%):</span>
+                          <span className="font-bold text-amber-800">
+                            ₹{(lastBookingRef.gstAmountINR ?? (lastBookingRef.totalAmountINR - Math.round(lastBookingRef.totalAmountINR / 1.05))).toLocaleString('en-IN')}
+                          </span>
+                        </div>
+                        <div className="flex justify-between pt-1.5 border-t border-slate-200 font-black text-sm text-slate-900">
+                          <span>Total Amount Payable:</span>
+                          <span className="text-emerald-700">
+                            ₹{lastBookingRef.totalAmountINR.toLocaleString('en-IN')} (~${lastBookingRef.totalAmountUSD} USD)
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Backend Dispatch Notification Box */}
                   <div className="bg-slate-900 text-white p-4.5 rounded-xl text-left border border-slate-800 space-y-3 max-w-xl mx-auto shadow-md">
@@ -643,12 +751,21 @@ GSTIN: 19ACUPH2897Q2ZA`;
                     </div>
                   </div>
 
-                  {/* Actions for Voucher & Email & WhatsApp & PayPal */}
+                  {/* Actions for Voucher & Email & WhatsApp */}
                   <div className="pt-2 flex flex-col sm:flex-row gap-2.5 justify-center flex-wrap">
                     <button
                       type="button"
+                      onClick={handleDownloadPDFVoucher}
+                      className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-5 rounded-xl shadow transition text-xs sm:text-sm"
+                    >
+                      <Download className="w-4 h-4 text-white" />
+                      <span>Download PDF Voucher</span>
+                    </button>
+
+                    <button
+                      type="button"
                       onClick={handleSendWhatsAppConfirmation}
-                      className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-5 rounded-xl shadow transition text-xs sm:text-sm"
+                      className="flex items-center justify-center gap-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold py-3 px-5 rounded-xl shadow transition text-xs sm:text-sm"
                     >
                       <MessageSquare className="w-4 h-4 fill-current" />
                       <span>Send / Open WhatsApp (+91 99339 92786)</span>
@@ -666,21 +783,11 @@ GSTIN: 19ACUPH2897Q2ZA`;
                     <button
                       type="button"
                       onClick={handleGenerateVoucher}
-                      className="flex items-center justify-center gap-2 bg-sky-600 hover:bg-sky-700 text-white font-bold py-3 px-5 rounded-xl shadow transition text-xs sm:text-sm"
+                      className="flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-3 px-5 rounded-xl shadow transition text-xs sm:text-sm"
                     >
-                      <FileText className="w-4 h-4" />
-                      <span>Download PDF Voucher</span>
+                      <Printer className="w-4 h-4 text-slate-950" />
+                      <span>Print/Save</span>
                     </button>
-
-                    <a
-                      href={`https://paypal.me/JahangirHussain958/${lastBookingRef?.totalAmountUSD || 100}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black py-3 px-5 rounded-xl shadow transition text-xs sm:text-sm"
-                    >
-                      <CreditCard className="w-4 h-4" />
-                      <span>Pay via PayPal (${lastBookingRef?.totalAmountUSD})</span>
-                    </a>
                   </div>
 
                   <p className="text-xs text-slate-500 pt-2">
@@ -703,10 +810,10 @@ GSTIN: 19ACUPH2897Q2ZA`;
 
                       {/* Step Nodes */}
                       {[
-                        { step: 1, label: 'Dates & Group', icon: Calendar, badge: `${adults} A ${children > 0 ? `, ${children} C` : ''}` },
-                        { step: 2, label: 'Vehicle & Hotel', icon: Car, badge: VEHICLES_DATA.find(v => v.id === selectedVehicle)?.name.split(' ')[0] },
-                        { step: 3, label: 'Lead Guest', icon: User, badge: guestName ? guestName.split(' ')[0] : 'Required' },
-                        { step: 4, label: 'Review & Pay', icon: CreditCard, badge: formattedFinalTotal },
+                        { step: 1, label: 'Step 1: Tour Details', icon: Compass, badge: travelDate || 'Select Date' },
+                        { step: 2, label: 'Step 2: Customer Details', icon: User, badge: guestName ? guestName.split(' ')[0] : 'Required' },
+                        { step: 3, label: 'Step 3: Payment Options', icon: CreditCard, badge: formattedFinalTotal },
+                        { step: 4, label: 'Step 4: Confirmation', icon: CheckCircle2, badge: 'Confirmed' },
                       ].map((item) => {
                         const isCompleted = bookingStep > item.step;
                         const isCurrent = bookingStep === item.step;
@@ -816,19 +923,19 @@ GSTIN: 19ACUPH2897Q2ZA`;
                                 <span>Select Preferred Pickup Time *</span>
                               </label>
                               <span className="text-[10px] text-amber-700 font-semibold bg-amber-50 px-2 py-0.5 rounded border border-amber-200/60">
-                                Doorstep Chauffeur
+                                Doorstep Private Driver
                               </span>
                             </div>
 
                             <PickupTimePicker value={pickupTime} onChange={setPickupTime} />
 
                             <p className="text-[10px] text-slate-500 italic">
-                              * Private chauffeur will arrive 10 mins prior with name placard.
+                              * Private driver will arrive 10 mins prior with name placard.
                             </p>
                           </div>
                         </div>
 
-                        {/* Pickup Location (Search by Map) */}
+                        {/* Pickup Location (Google Places Autocomplete + Map Picker) */}
                         <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-3">
                           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2">
                             <div>
@@ -837,7 +944,7 @@ GSTIN: 19ACUPH2897Q2ZA`;
                                 <span>Pickup Location & Hotel Address *</span>
                               </label>
                               <p className="text-[11px] text-slate-500">
-                                Airport terminal, railway station, or hotel in Delhi / Gurugram / Noida
+                                Search any city, airport, station, hotel, tourist attraction, or address across India
                               </p>
                             </div>
 
@@ -851,25 +958,22 @@ GSTIN: 19ACUPH2897Q2ZA`;
                             </button>
                           </div>
 
-                          <div className="relative">
-                            <input
-                              type="text"
-                              required
-                              placeholder="Type hotel name, airport terminal, or address..."
-                              value={pickupLocation}
-                              onChange={(e) => setPickupLocation(e.target.value)}
-                              className="w-full bg-slate-50 border border-slate-300 rounded-xl pl-9 pr-24 py-2.5 text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500"
-                            />
-                            <MapPin className="w-4 h-4 text-emerald-600 absolute left-3 top-3" />
-
-                            <button
-                              type="button"
-                              onClick={() => setShowMapPicker(true)}
-                              className="absolute right-2 top-1.5 text-[11px] font-bold text-sky-700 bg-sky-100 hover:bg-sky-200 px-2.5 py-1 rounded-lg transition"
-                            >
-                              Interactive Map 📍
-                            </button>
-                          </div>
+                          <GooglePlacesInput
+                            label=""
+                            placeholder="Type hotel name, airport, railway station, city, or address in India..."
+                            value={pickupLocation}
+                            onChange={(val) => {
+                              setPickupLocation(val);
+                              setIsPickupSelectedFromMaps(false);
+                            }}
+                            onSelectLocation={(address) => {
+                              setPickupLocation(address);
+                              setIsPickupSelectedFromMaps(true);
+                            }}
+                            isSelectedFromMaps={isPickupSelectedFromMaps}
+                            icon={<MapPin className="w-4 h-4 text-emerald-600" />}
+                            required
+                          />
 
                           {/* Quick Location Preset Chips */}
                           <div className="space-y-1.5">
@@ -881,7 +985,10 @@ GSTIN: 19ACUPH2897Q2ZA`;
                                 <button
                                   key={loc.id}
                                   type="button"
-                                  onClick={() => setPickupLocation(loc.name)}
+                                  onClick={() => {
+                                    setPickupLocation(loc.name);
+                                    setIsPickupSelectedFromMaps(true);
+                                  }}
                                   className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition border ${
                                     pickupLocation === loc.name
                                       ? 'bg-sky-600 text-white border-sky-600 shadow-sm'
@@ -895,8 +1002,8 @@ GSTIN: 19ACUPH2897Q2ZA`;
                           </div>
                         </div>
 
-                        {/* Group Size Row */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-white p-3.5 rounded-xl border border-slate-200">
+                        {/* Group Size & Guide Language Row */}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-white p-3.5 rounded-xl border border-slate-200">
                           <div>
                             <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1">
                               <Users className="w-3.5 h-3.5 text-slate-500" />
@@ -932,6 +1039,24 @@ GSTIN: 19ACUPH2897Q2ZA`;
                               ))}
                             </select>
                           </div>
+
+                          <div>
+                            <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1">
+                              <Compass className="w-3.5 h-3.5 text-indigo-600" />
+                              <span>Guide Language *</span>
+                            </label>
+                            <select
+                              value={guideLanguage}
+                              onChange={(e) => setGuideLanguage(e.target.value)}
+                              className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-500"
+                            >
+                              {GUIDE_LANGUAGES.map((lang) => (
+                                <option key={lang} value={lang}>
+                                  {lang} Guide
+                                </option>
+                              ))}
+                            </select>
+                          </div>
                         </div>
 
                         <div className="flex justify-end pt-2">
@@ -940,66 +1065,87 @@ GSTIN: 19ACUPH2897Q2ZA`;
                             onClick={() => setBookingStep(2)}
                             className="bg-sky-600 hover:bg-sky-700 text-white font-extrabold px-6 py-2.5 rounded-xl text-xs shadow-md transition flex items-center gap-2 transform active:scale-95"
                           >
-                            <span>Next: Vehicle & Accommodation</span>
+                            <span>Next: Vehicle {nights > 0 ? '& Accommodation' : 'Selection'}</span>
                             <ArrowRight className="w-4 h-4" />
                           </button>
                         </div>
                       </div>
                     )}
 
-                    {/* Step 2: Private Vehicle & Hotel Options */}
+                    {/* Step 2: Accommodation & Trip Options */}
                     {bookingStep === 2 && (
                       <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 space-y-5 animate-fadeIn">
                         <div className="flex items-center justify-between border-b border-slate-200 pb-3">
                           <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-                            <Car className="w-4 h-4 text-amber-600" /> Step 2 of 4: Vehicle & Accommodation Options
+                            <Car className="w-4 h-4 text-amber-600" /> Step 2 of 4: {nights > 0 ? 'Accommodation & Tour Options' : 'Vehicle & Tour Confirmation'}
                           </h3>
                           <span className="text-xs bg-amber-100 text-amber-800 font-bold px-2.5 py-0.5 rounded-full">
                             Phase 2/4
                           </span>
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                          {VEHICLES_DATA.map((v) => (
-                            <div
-                              key={v.id}
-                              onClick={() => setSelectedVehicle(v.id)}
-                              className={`cursor-pointer p-3 rounded-xl border text-xs transition relative ${
-                                selectedVehicle === v.id
-                                  ? 'border-sky-600 bg-sky-50/80 ring-2 ring-sky-500'
-                                  : 'border-slate-200 bg-white hover:border-slate-300'
-                              }`}
-                            >
-                              {selectedVehicle === v.id && (
-                                <div className="absolute top-2 right-2 w-4 h-4 bg-sky-600 text-white rounded-full flex items-center justify-center text-[10px] font-bold">
-                                  ✓
-                                </div>
-                              )}
-                              <div className="font-bold text-slate-900">{v.name}</div>
-                              <div className="text-[11px] text-slate-500 mt-0.5">{v.passengers}</div>
-                              <div className="mt-2 font-semibold text-sky-700">
-                                {v.id === 'sedan-dzire'
-                                  ? 'Standard Included'
-                                  : v.id === 'suv-innova'
-                                  ? `+${currency === 'INR' ? '₹1,500' : '$20'}`
-                                  : `+${currency === 'INR' ? '₹4,000' : '$50'}`}
-                              </div>
-                            </div>
-                          ))}
+                        <div className="bg-white p-4 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 flex items-center gap-3">
+                          <Car className="w-5 h-5 text-emerald-600 shrink-0" />
+                          <div>
+                            <span className="font-bold text-slate-900 block">Private Vehicle & Professional Driver Included</span>
+                            <span className="text-slate-500 text-[11px]">Clean, air-conditioned private vehicle with professional English-speaking driver included for your tour.</span>
+                          </div>
                         </div>
 
-                        <div>
-                          <label className="block text-xs font-semibold text-slate-700 mb-1">Hotel Category (If Applicable)</label>
-                          <select
-                            value={hotelCategory}
-                            onChange={(e) => setHotelCategory(e.target.value)}
-                            className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-semibold text-slate-800"
-                          >
-                            <option value="4-star-heritage">4-Star Heritage Haveli & Boutique Resorts (Included)</option>
-                            <option value="5-star-luxury">5-Star Luxury (Taj / Oberoi / Marriott) (+Additional Fee)</option>
-                            <option value="car-only">Transport Only (I will book my own hotels)</option>
-                          </select>
-                        </div>
+                        {/* Accommodation Options for Night Tours (Hidden for 0 nights) */}
+                        {nights > 0 && (
+                          <div className="pt-4 border-t border-slate-200 space-y-3">
+                            <div className="flex items-center justify-between">
+                              <h4 className="font-bold text-slate-900 text-xs flex items-center gap-2">
+                                <Building className="w-4 h-4 text-sky-600" /> Accommodation Category ({nights} Night{nights > 1 ? 's' : ''})
+                              </h4>
+                              <span className="text-[11px] font-bold text-sky-700 bg-sky-100 px-2 py-0.5 rounded">
+                                Total Tour Price Updates Automatically
+                              </span>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                              {[
+                                { id: 'none', label: 'Without Accommodation', rateINR: 0, rateUSD: 0 },
+                                { id: '3star', label: '3-Star Hotel Accommodation', rateINR: 3000, rateUSD: 36 },
+                                { id: '4star', label: '4-Star Hotel Accommodation', rateINR: 5000, rateUSD: 60 },
+                                { id: '5star', label: '5-Star Luxury Accommodation', rateINR: 10000, rateUSD: 120 },
+                              ].map((item) => {
+                                const optAddonINR = item.rateINR * nights;
+                                const optAddonUSD = item.rateUSD * nights;
+                                const optGrossUSD = rawSubtotalUSD + vehicleAddonUSD + optAddonUSD;
+                                const optGrossINR = rawSubtotalINR + vehicleAddonINR + optAddonINR;
+                                const optDiscountUSD = Math.round((optGrossUSD * appliedDiscountPercent) / 100);
+                                const optDiscountINR = Math.round((optGrossINR * appliedDiscountPercent) / 100);
+                                const optFinalUSD = Math.max(0, optGrossUSD - optDiscountUSD);
+                                const optFinalINR = Math.max(0, optGrossINR - optDiscountINR);
+                                const formattedOptTotal = formatConvertedPrice(optFinalUSD, optFinalINR, currency, rates);
+
+                                return (
+                                  <div
+                                    key={item.id}
+                                    onClick={() => setSelectedAccommodation(item.id as any)}
+                                    className={`cursor-pointer p-3.5 rounded-xl border text-xs transition relative ${
+                                      selectedAccommodation === item.id
+                                        ? 'border-sky-600 bg-sky-50/90 ring-2 ring-sky-500 shadow-sm'
+                                        : 'border-slate-200 bg-white hover:border-slate-300'
+                                    }`}
+                                  >
+                                    {selectedAccommodation === item.id && (
+                                      <div className="absolute top-2.5 right-2.5 w-4 h-4 bg-sky-600 text-white rounded-full flex items-center justify-center text-[10px] font-bold">
+                                        ✓
+                                      </div>
+                                    )}
+                                    <div className="font-bold text-slate-900 pr-5">{item.label}</div>
+                                    <div className="text-[11px] font-bold text-emerald-700 mt-1">
+                                      Total Tour Amount: {formattedOptTotal}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
 
                         <div className="flex justify-between items-center pt-2">
                           <button
@@ -1052,12 +1198,21 @@ GSTIN: 19ACUPH2897Q2ZA`;
                             <label className="block text-xs font-semibold text-slate-700 mb-1">Mobile / WhatsApp No. *</label>
                             <input
                               type="tel"
+                              inputMode="numeric"
                               required
-                              placeholder="+1 555-0199 or +91 9876543210"
+                              placeholder="e.g. 9933992786 or +919933992786"
                               value={guestPhone}
-                              onChange={(e) => setGuestPhone(e.target.value)}
-                              className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-sky-500 font-semibold"
+                              onKeyDown={handlePhoneKeyDown}
+                              onChange={(e) => setGuestPhone(sanitizePhoneNumber(e.target.value))}
+                              className={`w-full bg-white border rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-sky-500 font-semibold ${
+                                guestPhone && !isValidPhoneNumber(guestPhone) ? 'border-red-400 bg-red-50/50' : 'border-slate-300'
+                              }`}
                             />
+                            {guestPhone && !isValidPhoneNumber(guestPhone) && (
+                              <p className="text-[11px] font-bold text-red-600 mt-1">
+                                ⚠️ Enter 7 to 15 digits (digits & leading + only).
+                              </p>
+                            )}
                           </div>
 
                           <div>
@@ -1105,208 +1260,474 @@ GSTIN: 19ACUPH2897Q2ZA`;
                       </div>
                     )}
 
-                    {/* Step 4: Payment Terms & Summary */}
-                    {bookingStep === 4 && (
-                      <div className="space-y-4 animate-fadeIn">
+                    {/* Step 3: Payment Options */}
+                    {bookingStep === 3 && (
+                      <div className="space-y-5 animate-fadeIn">
+                        {/* Booking Summary Box */}
+                        <div className="bg-slate-900 text-white p-5 rounded-2xl border border-slate-800 shadow-md space-y-4">
+                          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-slate-800 pb-3">
+                            <div>
+                              <span className="text-[10px] font-black uppercase text-amber-400 tracking-wider block">Tour Booking Summary</span>
+                              <h4 className="text-lg font-black text-white">{tour.title}</h4>
+                            </div>
+                            <div className="text-right">
+                              <span className="text-[10px] uppercase text-slate-400 block font-bold">Total Tour Fare</span>
+                              <span className="text-2xl font-black text-amber-400">{formattedFinalTotal}</span>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-xs text-slate-300">
+                            <div>
+                              <span className="text-slate-400 text-[10px] block font-bold">Travel Date & Pickup</span>
+                              <p className="font-semibold text-white mt-0.5">{travelDate} at {pickupTime}</p>
+                            </div>
+                            <div>
+                              <span className="text-slate-400 text-[10px] block font-bold">Pickup Location</span>
+                              <p className="font-semibold text-white mt-0.5 truncate">{pickupLocation}</p>
+                            </div>
+                            <div>
+                              <span className="text-slate-400 text-[10px] block font-bold">Lead Guest</span>
+                              <p className="font-semibold text-white mt-0.5">{guestName} ({guestPhone})</p>
+                            </div>
+                            <div>
+                              <span className="text-slate-400 text-[10px] block font-bold">Vehicle & Guide</span>
+                              <p className="font-semibold text-white mt-0.5">
+                                {VEHICLES_DATA.find((v) => v.id === selectedVehicle)?.name || 'AC Sedan'} • {guideLanguage} Guide
+                              </p>
+                            </div>
+                            {nights > 0 && (
+                              <div className="sm:col-span-2">
+                                <span className="text-slate-400 text-[10px] block font-bold">Accommodation Option</span>
+                                <p className="font-semibold text-white mt-0.5">{selectedAccommodationLabel}</p>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* GST Financial Breakdown */}
+                          <div className="bg-slate-800/80 rounded-xl p-3 border border-slate-700/80 text-xs space-y-1.5 pt-2.5">
+                            <div className="flex justify-between text-slate-300">
+                              <span>Base Amount:</span>
+                              <span className="font-bold text-white">
+                                {formatConvertedPrice(tourAmountUSD, tourAmountINR, currency, rates)}
+                              </span>
+                            </div>
+                            <div className="flex justify-between text-amber-300/90">
+                              <span>Goods & Services Tax (GST @ 5%):</span>
+                              <span className="font-bold">
+                                {formatConvertedPrice(gstUSD, gstINR, currency, rates)}
+                              </span>
+                            </div>
+                            {appliedDiscountPercent > 0 && (
+                              <div className="flex justify-between text-blue-400 font-bold">
+                                <span>Coupon Discount ({appliedDiscountPercent}% OFF):</span>
+                                <span>-{formattedDiscount}</span>
+                              </div>
+                            )}
+                            <div className="flex justify-between pt-1.5 border-t border-slate-700/80 font-black text-sm text-white">
+                              <span>Total Amount Payable:</span>
+                              <span className="text-amber-400">{formattedFinalTotal}</span>
+                            </div>
+                          </div>
+                        </div>
+
                         {/* Coupon Code Input */}
-                        <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 p-3 rounded-xl">
-                          <Sparkles className="w-4 h-4 text-amber-600 shrink-0" />
+                        <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 p-3 rounded-xl">
+                          <Sparkles className="w-4 h-4 text-blue-600 shrink-0" />
                           <input
                             type="text"
-                            placeholder="Coupon (e.g. ZAARA10)"
+                            placeholder="Coupon Code (e.g. ZAARA10)"
                             value={couponCode}
                             onChange={(e) => setCouponCode(e.target.value)}
-                            className="bg-white border border-amber-300 rounded-lg px-3 py-1.5 text-xs font-bold uppercase w-48"
+                            className="bg-white border border-blue-300 focus:ring-2 focus:ring-blue-500 focus:outline-none rounded-lg px-3 py-1.5 text-xs font-bold uppercase w-48 text-blue-950"
                           />
                           <button
                             type="button"
                             onClick={handleApplyCoupon}
-                            className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-3 py-1.5 rounded-lg text-xs"
+                            className="bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold px-4 py-1.5 rounded-lg text-xs transition shadow-sm hover:shadow flex items-center gap-1.5"
                           >
-                            Apply
+                            <span>Apply Coupon</span>
                           </button>
                           {couponMessage && (
-                            <span className="text-xs font-bold text-slate-800 ml-2">{couponMessage}</span>
+                            <span className="text-xs font-bold text-blue-900 ml-2">{couponMessage}</span>
                           )}
                         </div>
 
-                        <div className="bg-slate-900 text-white rounded-xl p-5 space-y-4">
-                          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-800 pb-3">
-                            <div>
-                              <h4 className="font-bold text-sm text-white flex items-center gap-2">
-                                <CreditCard className="w-4 h-4 text-sky-400" /> Step 4 of 4: Review & Payment Terms
-                              </h4>
-                              <p className="text-xs text-slate-400">Supported by PayPal, Razorpay, Stripe & UPI</p>
+                        {/* Payment Options (Pay on Arrival / 25% Advance / 100% Online) */}
+                        <div className="space-y-3">
+                          <label className="block text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                            <CreditCard className="w-4 h-4 text-emerald-600" /> Select Payment Option
+                          </label>
+
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            {/* Pay on Arrival */}
+                            <div
+                              onClick={() => setPaymentOption('arrival')}
+                              className={`cursor-pointer p-4 rounded-2xl border transition relative flex flex-col justify-between space-y-3 ${
+                                paymentOption === 'arrival'
+                                  ? 'border-emerald-600 bg-emerald-50/70 ring-2 ring-emerald-500 shadow-md'
+                                  : 'border-slate-200 bg-slate-50/50 hover:bg-white hover:border-slate-300'
+                              }`}
+                            >
+                              <div className="space-y-1.5">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                    Zero Deposit
+                                  </span>
+                                  {paymentOption === 'arrival' && <CheckCircle2 className="w-4 h-4 text-emerald-600" />}
+                                </div>
+                                <h4 className="font-extrabold text-sm text-slate-900 flex items-center gap-1.5">
+                                  <Banknote className="w-4 h-4 text-emerald-600" />
+                                  Pay on Arrival
+                                </h4>
+                                <p className="text-xs text-slate-600">
+                                  Pay 100% directly to driver upon pickup via Cash, UPI, or Card.
+                                </p>
+                              </div>
+
+                              <div className="pt-2 border-t border-slate-200/80">
+                                <div className="text-xs font-black text-slate-900">
+                                  Pay Now: <span className="text-emerald-700">₹0 / Free</span>
+                                </div>
+                                <span className="text-[10px] text-slate-500 font-semibold block">
+                                  Full amount ({formattedFinalTotal}) due at pickup
+                                </span>
+                              </div>
                             </div>
 
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <button
-                                type="button"
-                                onClick={() => setPaymentOption('full')}
-                                className={`px-3 py-1.5 rounded-lg text-xs font-bold ${
-                                  paymentOption === 'full' ? 'bg-amber-500 text-slate-950' : 'bg-slate-800 text-slate-300'
-                                }`}
-                              >
-                                Pay Full Online
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setPaymentOption('deposit')}
-                                className={`px-3 py-1.5 rounded-lg text-xs font-bold ${
-                                  paymentOption === 'deposit' ? 'bg-amber-500 text-slate-950' : 'bg-slate-800 text-slate-300'
-                                }`}
-                              >
-                                25% Advance Deposit
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setPaymentOption('arrival')}
-                                className={`px-3 py-1.5 rounded-lg text-xs font-bold ${
-                                  paymentOption === 'arrival' ? 'bg-amber-500 text-slate-950' : 'bg-slate-800 text-slate-300'
-                                }`}
-                              >
-                                Pay Driver on Arrival
-                              </button>
+                            {/* Pay 25% Advance */}
+                            <div
+                              onClick={() => setPaymentOption('deposit')}
+                              className={`cursor-pointer p-4 rounded-2xl border transition relative flex flex-col justify-between space-y-3 ${
+                                paymentOption === 'deposit'
+                                  ? 'border-sky-600 bg-sky-50/70 ring-2 ring-sky-500 shadow-md'
+                                  : 'border-slate-200 bg-slate-50/50 hover:bg-white hover:border-slate-300'
+                              }`}
+                            >
+                              <div className="space-y-1.5">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-sky-100 text-sky-800 border border-sky-200">
+                                    25% Deposit
+                                  </span>
+                                  {paymentOption === 'deposit' && <CheckCircle2 className="w-4 h-4 text-sky-600" />}
+                                </div>
+                                <h4 className="font-extrabold text-sm text-slate-900 flex items-center gap-1.5">
+                                  <Wallet className="w-4 h-4 text-sky-600" />
+                                  Pay 25% Advance & Pay Remaining Amount to Driver
+                                </h4>
+                                <p className="text-xs text-slate-600">
+                                  Pay 25% advance token now. Pay remaining 75% to driver.
+                                </p>
+                              </div>
+
+                              <div className="pt-2 border-t border-slate-200/80">
+                                <div className="text-xs font-black text-slate-900">
+                                  Pay Now: <span className="text-sky-700">{formatConvertedPrice(Math.round(finalTotalUSD * 0.25), Math.round(finalTotalINR * 0.25), currency, rates)}</span>
+                                </div>
+                                <span className="text-[10px] text-slate-500 font-semibold block">
+                                  Remaining {formatConvertedPrice(Math.round(finalTotalUSD * 0.75), Math.round(finalTotalINR * 0.75), currency, rates)} due at pickup
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Pay 100% Online */}
+                            <div
+                              onClick={() => setPaymentOption('full')}
+                              className={`cursor-pointer p-4 rounded-2xl border transition relative flex flex-col justify-between space-y-3 ${
+                                paymentOption === 'full'
+                                  ? 'border-amber-600 bg-amber-50/70 ring-2 ring-amber-500 shadow-md'
+                                  : 'border-slate-200 bg-slate-50/50 hover:bg-white hover:border-slate-300'
+                              }`}
+                            >
+                              <div className="space-y-1.5">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-200">
+                                    100% Online
+                                  </span>
+                                  {paymentOption === 'full' && <CheckCircle2 className="w-4 h-4 text-amber-600" />}
+                                </div>
+                                <h4 className="font-extrabold text-sm text-slate-900 flex items-center gap-1.5">
+                                  <ShieldCheck className="w-4 h-4 text-amber-600" />
+                                  Pay 100% Online
+                                </h4>
+                                <p className="text-xs text-slate-600">
+                                  Complete full payment upfront for priority driver & vehicle allocation.
+                                </p>
+                              </div>
+
+                              <div className="pt-2 border-t border-slate-200/80">
+                                <div className="text-xs font-black text-slate-900">
+                                  Pay Now: <span className="text-amber-700">{formattedFinalTotal}</span>
+                                </div>
+                                <span className="text-[10px] text-emerald-700 font-bold block">
+                                  ✓ Zero balance due on travel date
+                                </span>
+                              </div>
                             </div>
                           </div>
+                        </div>
 
-                          {/* Gateway Selectors */}
-                          <div>
-                            <div className="text-xs font-bold text-slate-300 mb-2">Select Preferred Payment Gateway:</div>
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                        {/* Online Payment Gateways (shown when 25% Advance or 100% Online is selected) */}
+                        {paymentOption !== 'arrival' && (
+                          <div className="bg-slate-900 text-white p-4 sm:p-5 rounded-2xl space-y-3 border border-slate-800 shadow-inner">
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-slate-800 pb-2.5">
+                              <div>
+                                <span className="text-[10px] font-extrabold uppercase tracking-wider text-amber-400 block">
+                                  Select Online Payment Gateway
+                                </span>
+                                <span className="text-xs font-bold text-slate-200">
+                                  Processing {paymentOption === 'deposit' ? `25% deposit (${formatConvertedPrice(Math.round(finalTotalUSD * 0.25), Math.round(finalTotalINR * 0.25), currency, rates)})` : `100% full amount (${formattedFinalTotal})`}
+                                </span>
+                              </div>
+
+                              <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-700">
+                                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> 256-Bit Encrypted
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                              {/* PayU */}
                               <button
                                 type="button"
-                                onClick={() => setPaymentGateway('paypal')}
-                                className={`p-2.5 rounded-xl border text-left font-bold transition ${
-                                  paymentGateway === 'paypal'
-                                    ? 'bg-indigo-600 border-indigo-400 text-white shadow'
-                                    : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-750'
+                                onClick={() => setPaymentGateway('payu')}
+                                className={`p-3 rounded-xl border text-left transition flex items-center gap-3 ${
+                                  paymentGateway === 'payu'
+                                    ? 'bg-amber-500/20 border-amber-400 text-white ring-2 ring-amber-400/50'
+                                    : 'bg-slate-800/80 border-slate-700 text-slate-300 hover:bg-slate-800'
                                 }`}
                               >
-                                PayPal Link
+                                <div className="w-9 h-9 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+                                  <CreditCard className="w-5 h-5" />
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center justify-between">
+                                    <span className="font-black text-xs text-white">PayU</span>
+                                    {paymentGateway === 'payu' && <Check className="w-3.5 h-3.5 text-amber-400" />}
+                                  </div>
+                                  <span className="text-[10px] text-slate-400 block truncate">Credit/Debit Cards, NetBanking</span>
+                                </div>
                               </button>
-                              <button
-                                type="button"
-                                onClick={() => setPaymentGateway('razorpay')}
-                                className={`p-2.5 rounded-xl border text-left font-bold transition ${
-                                  paymentGateway === 'razorpay'
-                                    ? 'bg-sky-600 border-sky-400 text-white shadow'
-                                    : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-750'
-                                }`}
-                              >
-                                Razorpay / UPI
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setPaymentGateway('stripe')}
-                                className={`p-2.5 rounded-xl border text-left font-bold transition ${
-                                  paymentGateway === 'stripe'
-                                    ? 'bg-purple-600 border-purple-400 text-white shadow'
-                                    : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-750'
-                                }`}
-                              >
-                                Stripe Card
-                              </button>
+
+                              {/* Google UPI */}
                               <button
                                 type="button"
                                 onClick={() => setPaymentGateway('upi')}
-                                className={`p-2.5 rounded-xl border text-left font-bold transition ${
+                                className={`p-3 rounded-xl border text-left transition flex items-center gap-3 ${
                                   paymentGateway === 'upi'
-                                    ? 'bg-emerald-600 border-emerald-400 text-white shadow'
-                                    : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-750'
+                                    ? 'bg-amber-500/20 border-amber-400 text-white ring-2 ring-amber-400/50'
+                                    : 'bg-slate-800/80 border-slate-700 text-slate-300 hover:bg-slate-800'
                                 }`}
                               >
-                                Google Pay / UPI
-                              </button>
-                            </div>
-
-                            {/* PayPal Direct Banner */}
-                            {paymentGateway === 'paypal' && (
-                              <div className="mt-3 bg-indigo-950 p-3.5 rounded-xl border border-indigo-700 text-xs space-y-2">
-                                <div className="flex items-center justify-between font-bold text-amber-300">
-                                  <span>PayPal Express Payment Link:</span>
-                                  <span className="font-mono text-indigo-300">paypal.me/JahangirHussain958</span>
+                                <div className="w-9 h-9 rounded-lg bg-sky-500/20 text-sky-400 flex items-center justify-center shrink-0">
+                                  <Smartphone className="w-5 h-5" />
                                 </div>
-                                <p className="text-slate-300 text-[11px] leading-relaxed">
-                                  Pay securely in USD (${finalUSD}) or any international currency. Official instant invoice & booking confirmation voucher provided.
-                                </p>
-                                <a
-                                  href={`https://paypal.me/JahangirHussain958/${finalUSD}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center justify-center gap-2 w-full bg-amber-400 hover:bg-amber-300 text-indigo-950 font-black py-2 rounded-lg transition text-xs"
-                                >
-                                  <span>Pay Now via PayPal Link (${finalUSD})</span>
-                                </a>
-                              </div>
-                            )}
-                          </div>
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center justify-between">
+                                    <span className="font-black text-xs text-white">Google UPI</span>
+                                    {paymentGateway === 'upi' && <Check className="w-3.5 h-3.5 text-amber-400" />}
+                                  </div>
+                                  <span className="text-[10px] text-slate-400 block truncate">GPay, PhonePe, Paytm UPI</span>
+                                </div>
+                              </button>
 
-                          {/* Travel Details Summary */}
-                          <div className="bg-slate-800/90 border border-slate-700 p-3 rounded-xl text-xs space-y-1.5">
-                            <div className="text-[11px] font-bold text-sky-400 uppercase tracking-wider mb-1 flex items-center justify-between">
-                              <span>Trip Pickup & Schedule Details:</span>
+                              {/* PayPal */}
                               <button
                                 type="button"
-                                onClick={() => setBookingStep(1)}
-                                className="text-amber-400 hover:underline capitalize font-semibold"
+                                onClick={() => setPaymentGateway('paypal')}
+                                className={`p-3 rounded-xl border text-left transition flex items-center gap-3 ${
+                                  paymentGateway === 'paypal'
+                                    ? 'bg-amber-500/20 border-amber-400 text-white ring-2 ring-amber-400/50'
+                                    : 'bg-slate-800/80 border-slate-700 text-slate-300 hover:bg-slate-800'
+                                }`}
                               >
-                                Edit Schedule ✏️
+                                <div className="w-9 h-9 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center shrink-0">
+                                  <Globe className="w-5 h-5" />
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center justify-between">
+                                    <span className="font-black text-xs text-white">PayPal</span>
+                                    {paymentGateway === 'paypal' && <Check className="w-3.5 h-3.5 text-amber-400" />}
+                                  </div>
+                                  <span className="text-[10px] text-slate-400 block truncate">International Credit Cards</span>
+                                </div>
                               </button>
                             </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-slate-300">
-                              <div>📅 <strong>Date:</strong> {travelDate}</div>
-                              <div>⏰ <strong>Pickup Time:</strong> {pickupTime}</div>
-                              <div className="sm:col-span-3 text-slate-200">
-                                📍 <strong>Pickup Point:</strong> {pickupLocation}
-                              </div>
+                          </div>
+                        )}
+
+                        {/* CTA Buttons */}
+                        <div className="flex gap-3 pt-2">
+                          <button
+                            type="button"
+                            onClick={() => setBookingStep(2)}
+                            className="bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold px-4 py-3.5 rounded-xl text-xs transition flex items-center gap-1.5"
+                          >
+                            <ArrowLeft className="w-4 h-4" />
+                            <span>Back</span>
+                          </button>
+
+                          <button
+                            type="submit"
+                            className="flex-1 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-extrabold py-3.5 rounded-xl text-sm shadow-lg transition flex items-center justify-center gap-2"
+                          >
+                            <ShieldCheck className="w-5 h-5" />
+                            <span>Proceed to Payment / Confirm Reservation</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Step 4: Tour Booking Confirm, PDF Voucher, Preview, Print/Save & Direct WhatsApp */}
+                    {bookingStep === 4 && (
+                      <div className="space-y-6 animate-fadeIn py-2">
+                        {/* Success Banner */}
+                        <div className="bg-gradient-to-r from-emerald-900 via-slate-900 to-teal-900 text-white p-6 rounded-2xl border border-emerald-500/40 shadow-xl space-y-4 relative overflow-hidden">
+                          <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
+                            <Sparkles className="w-36 h-36 text-emerald-300" />
+                          </div>
+
+                          <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 rounded-full bg-emerald-500/20 border border-emerald-400/50 flex items-center justify-center text-emerald-400 shrink-0">
+                              <CheckCircle2 className="w-7 h-7" />
+                            </div>
+                            <div>
+                              <span className="text-[10px] font-black uppercase text-emerald-400 tracking-wider block">Reservation Verified</span>
+                              <h3 className="text-xl font-black text-white">Tour Booking Confirmed!</h3>
+                              <p className="text-xs text-slate-300">Your tour reservation has been logged and confirmed in our system.</p>
                             </div>
                           </div>
 
-                          {/* Cost Breakdown */}
-                          <div className="space-y-1.5 text-xs text-slate-300 bg-slate-800/60 p-3 rounded-xl border border-slate-750">
-                            <div className="flex justify-between">
-                              <span>Base Package ({adults} Adults):</span>
-                              <span>{formattedSubtotal}</span>
+                          {/* Booking Details Summary Box */}
+                          <div className="bg-slate-950/80 rounded-xl p-4 border border-slate-800 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                            <div>
+                              <span className="text-slate-400 text-[10px] block font-bold">Booking Ref</span>
+                              <span className="font-mono font-black text-amber-400 text-sm">{bookingConfirmed?.bookingId || lastBookingRef?.bookingId || 'ZT-CONFIRMED'}</span>
                             </div>
-                            {vehicleAddonUSD > 0 && (
-                              <div className="flex justify-between text-amber-300">
-                                <span>Vehicle Upgrade Add-on:</span>
-                                <span>{formattedVehicleAddon}</span>
-                              </div>
-                            )}
-                            {appliedDiscountPercent > 0 && (
-                              <div className="flex justify-between text-emerald-400 font-bold">
-                                <span>Discount ({appliedDiscountPercent}% OFF):</span>
-                                <span>-{formattedDiscount}</span>
-                              </div>
-                            )}
-                            <div className="flex justify-between text-base font-black text-white pt-2 border-t border-slate-700">
-                              <span>Total Amount Payable ({currency}):</span>
-                              <span className="text-amber-400">
-                                {formattedFinalTotal}
-                              </span>
+                            <div>
+                              <span className="text-slate-400 text-[10px] block font-bold">Lead Guest</span>
+                              <span className="font-bold text-white truncate block">{bookingConfirmed?.guestName || guestName}</span>
+                            </div>
+                            <div>
+                              <span className="text-slate-400 text-[10px] block font-bold">Travel Date</span>
+                              <span className="font-bold text-emerald-300">{bookingConfirmed?.travelDate || travelDate}</span>
+                            </div>
+                            <div>
+                              <span className="text-slate-400 text-[10px] block font-bold">Total Fare</span>
+                              <span className="font-black text-amber-400 text-sm">{formattedFinalTotal}</span>
                             </div>
                           </div>
+                        </div>
 
-                          <div className="flex gap-3">
+                        {/* Voucher & Actions Grid */}
+                        <div className="space-y-3">
+                          <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                            <FileText className="w-4 h-4 text-amber-600" /> Official Voucher & Direct Actions
+                          </h4>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {/* 1. Download PDF Voucher */}
                             <button
                               type="button"
-                              onClick={handlePrevStep}
-                              className="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold px-4 py-3.5 rounded-xl text-xs transition flex items-center gap-1.5 border border-slate-700"
+                              onClick={() => {
+                                const dataToUse = bookingConfirmed || lastBookingRef || pendingBookingData;
+                                if (dataToUse) downloadBookingPDF(dataToUse);
+                              }}
+                              className="p-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold transition shadow-md flex items-center gap-3 group text-left"
                             >
-                              <ArrowLeft className="w-4 h-4" />
-                              <span>Back</span>
+                              <div className="w-10 h-10 rounded-xl bg-emerald-500/30 flex items-center justify-center text-white shrink-0 group-hover:scale-105 transition">
+                                <Download className="w-5 h-5" />
+                              </div>
+                              <div>
+                                <div className="font-black text-sm">Download PDF Voucher</div>
+                                <div className="text-[11px] text-emerald-100">Official branded PDF with QR Code</div>
+                              </div>
                             </button>
 
+                            {/* 2. Preview Voucher */}
                             <button
-                              type="submit"
-                              className="flex-1 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-extrabold py-3.5 rounded-xl text-sm shadow-lg transition flex items-center justify-center gap-2"
+                              type="button"
+                              onClick={() => {
+                                const dataToUse = bookingConfirmed || lastBookingRef || pendingBookingData;
+                                if (dataToUse) openPrintableVoucher(dataToUse);
+                              }}
+                              className="p-4 rounded-2xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold transition shadow-md flex items-center gap-3 group text-left"
                             >
-                              <ShieldCheck className="w-5 h-5" />
-                              <span>Confirm Booking & Generate PDF Voucher</span>
+                              <div className="w-10 h-10 rounded-xl bg-amber-400/50 flex items-center justify-center text-slate-950 shrink-0 group-hover:scale-105 transition">
+                                <FileText className="w-5 h-5" />
+                              </div>
+                              <div>
+                                <div className="font-black text-sm">Preview Voucher</div>
+                                <div className="text-[11px] text-amber-950">View interactive digital voucher online</div>
+                              </div>
+                            </button>
+
+                            {/* 3. Print / Save */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const dataToUse = bookingConfirmed || lastBookingRef || pendingBookingData;
+                                if (dataToUse) openPrintableVoucher(dataToUse);
+                              }}
+                              className="p-4 rounded-2xl bg-sky-700 hover:bg-sky-800 text-white font-bold transition shadow-md flex items-center gap-3 group text-left"
+                            >
+                              <div className="w-10 h-10 rounded-xl bg-sky-600 flex items-center justify-center text-white shrink-0 group-hover:scale-105 transition">
+                                <Printer className="w-5 h-5" />
+                              </div>
+                              <div>
+                                <div className="font-black text-sm">Print / Save Voucher</div>
+                                <div className="text-[11px] text-sky-100">Print voucher or save to PDF</div>
+                              </div>
+                            </button>
+
+                            {/* 4. Direct WhatsApp Open */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const dataToUse = bookingConfirmed || lastBookingRef || pendingBookingData;
+                                const waText = `*CONFIRMED BOOKING VOUCHER - ZAARA TRAVELS*
+*Booking Ref:* ${dataToUse?.bookingId || 'ZT-CONFIRMED'}
+*Guest Name:* ${dataToUse?.guestName || guestName}
+*Phone:* ${dataToUse?.guestPhone || guestPhone}
+*Tour:* ${dataToUse?.tourTitle || tour.title}
+*Travel Date:* ${dataToUse?.travelDate || travelDate}
+*Guide Language:* ${dataToUse?.guideLanguage || guideLanguage}
+*Vehicle:* ${dataToUse?.vehicleType || selectedVehicle}
+*Total Amount:* ${formattedFinalTotal}
+*Payment Method:* ${dataToUse?.paymentMethod || paymentOption}
+*GSTIN:* 19ACUPH2897Q2ZA
+
+Hello Zaara Travels, I confirmed my booking! Please assign my driver and send vehicle details.`;
+                                window.open(`https://wa.me/919837071869?text=${encodeURIComponent(waText)}`, '_blank');
+                              }}
+                              className="p-4 rounded-2xl bg-teal-600 hover:bg-teal-700 text-white font-bold transition shadow-md flex items-center gap-3 group text-left"
+                            >
+                              <div className="w-10 h-10 rounded-xl bg-teal-500/40 flex items-center justify-center text-white shrink-0 group-hover:scale-105 transition">
+                                <MessageSquare className="w-5 h-5" />
+                              </div>
+                              <div>
+                                <div className="font-black text-sm">Direct WhatsApp Open</div>
+                                <div className="text-[11px] text-teal-100">Contact dispatch team (+91 9837071869)</div>
+                              </div>
                             </button>
                           </div>
+                        </div>
+
+                        {/* Close / Done Action */}
+                        <div className="pt-2 flex justify-between items-center">
+                          <button
+                            type="button"
+                            onClick={() => setBookingStep(3)}
+                            className="text-xs text-slate-500 hover:text-slate-800 underline font-semibold"
+                          >
+                            ← View Payment Summary
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={onClose}
+                            className="bg-slate-900 hover:bg-black text-white font-extrabold px-6 py-3 rounded-xl text-xs transition shadow-md"
+                          >
+                            Done & Close Window
+                          </button>
                         </div>
                       </div>
                     )}
@@ -1322,10 +1743,23 @@ GSTIN: 19ACUPH2897Q2ZA`;
       {showMapPicker && (
         <InteractiveMapPicker
           initialLocation={pickupLocation}
-          onSelectLocation={(address) => setPickupLocation(address)}
+          onSelectLocation={(address) => {
+            setPickupLocation(address);
+            setIsPickupSelectedFromMaps(true);
+          }}
           onClose={() => setShowMapPicker(false)}
         />
       )}
+
+      {/* Payment Gateway Modal */}
+      <PaymentGatewayModal
+        isOpen={isPaymentGatewayOpen}
+        onClose={() => setIsPaymentGatewayOpen(false)}
+        bookingData={pendingBookingData}
+        currency={currency}
+        rates={rates}
+        onBookingConfirmed={handlePaymentConfirmed}
+      />
     </div>
   );
 };

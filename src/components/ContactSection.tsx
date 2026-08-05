@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Phone, Mail, MapPin, Globe, MessageSquare, ShieldCheck, UserCheck, Send, CheckCircle2 } from 'lucide-react';
+import { sanitizePhoneNumber, isValidPhoneNumber, handlePhoneKeyDown, PHONE_ERROR_MESSAGE } from '../utils/phoneValidation';
 
 export const ContactSection: React.FC = () => {
   const [formSubmitted, setFormSubmitted] = useState(false);
@@ -12,6 +13,10 @@ export const ContactSection: React.FC = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!phone || !isValidPhoneNumber(phone)) {
+      alert(PHONE_ERROR_MESSAGE);
+      return;
+    }
     setFormSubmitted(true);
   };
 
@@ -62,11 +67,28 @@ export const ContactSection: React.FC = () => {
 
                 <div className="flex items-start gap-3">
                   <Phone className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
-                  <div>
-                    <span className="text-slate-400 block text-xs">Mobile / WhatsApp 24/7</span>
-                    <a href="tel:+919933992786" className="text-white font-black text-base hover:text-amber-400">
-                      +91 99339 92786
-                    </a>
+                  <div className="space-y-1">
+                    <span className="text-slate-400 block text-xs">Direct Phones & WhatsApp (24/7)</span>
+                    <div className="space-y-1 text-xs">
+                      <div>
+                        <span className="text-slate-400">Primary / WA: </span>
+                        <a href="tel:+919933992786" className="text-white font-black hover:text-amber-400">
+                          +91 99339 92786
+                        </a>
+                      </div>
+                      <div>
+                        <span className="text-slate-400">Secondary: </span>
+                        <a href="tel:+919932999786" className="text-white font-black hover:text-amber-400">
+                          +91 99329 99786
+                        </a>
+                      </div>
+                      <div>
+                        <span className="text-slate-400">Office Line: </span>
+                        <a href="tel:+01169296175" className="text-white font-black hover:text-amber-400">
+                          +011 69296175
+                        </a>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -146,12 +168,21 @@ export const ContactSection: React.FC = () => {
                     <label className="block text-xs font-bold text-slate-700 mb-1">Mobile / WhatsApp *</label>
                     <input
                       type="tel"
+                      inputMode="numeric"
                       required
                       value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      placeholder="+1 234 567 890 or +91..."
-                      className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-medium focus:ring-2 focus:ring-sky-500"
+                      onKeyDown={handlePhoneKeyDown}
+                      onChange={(e) => setPhone(sanitizePhoneNumber(e.target.value))}
+                      placeholder="e.g. 9876543210 or +919876543210"
+                      className={`w-full px-3.5 py-2.5 bg-white border rounded-xl font-medium focus:ring-2 focus:ring-sky-500 ${
+                        phone && !isValidPhoneNumber(phone) ? 'border-red-400 bg-red-50/50' : 'border-slate-300'
+                      }`}
                     />
+                    {phone && !isValidPhoneNumber(phone) && (
+                      <p className="text-[11px] font-bold text-red-600 mt-1">
+                        ⚠️ Enter 7 to 15 digits (digits & leading + only).
+                      </p>
+                    )}
                   </div>
                 </div>
 

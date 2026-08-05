@@ -7,13 +7,13 @@ import {
   ShieldCheck,
   ArrowRight,
   CheckCircle,
-  ArrowRightLeft,
   ChevronLeft,
   ChevronRight,
   Camera,
 } from 'lucide-react';
 import { CurrencyCode, formatConvertedPrice } from '../utils/currencyConverter';
 import { getTourGalleryImages } from '../utils/galleryHelper';
+import { OfferBadge } from './OfferBadge';
 
 interface TourCardProps {
   tour: TourPackage;
@@ -21,7 +21,6 @@ interface TourCardProps {
   rates?: Record<CurrencyCode, number>;
   onSelectTour: (tour: TourPackage) => void;
   onQuickBook: (tour: TourPackage) => void;
-  onCompareTour?: (tour: TourPackage) => void;
 }
 
 export const TourCard: React.FC<TourCardProps> = ({
@@ -30,7 +29,6 @@ export const TourCard: React.FC<TourCardProps> = ({
   rates,
   onSelectTour,
   onQuickBook,
-  onCompareTour,
 }) => {
   const displayPrice = formatConvertedPrice(tour.priceFromUSD, tour.priceFromINR, currency, rates);
   const galleryImages = getTourGalleryImages(tour);
@@ -52,7 +50,7 @@ export const TourCard: React.FC<TourCardProps> = ({
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 hover:border-slate-300/80 overflow-hidden shadow-sm hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 ease-out flex flex-col group">
+    <div className="bg-white rounded-2xl border border-slate-200 hover:border-slate-300/80 overflow-hidden shadow-sm hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 ease-out flex flex-col group notranslate" translate="no">
       {/* Carousel Image Banner */}
       <div
         onClick={() => onSelectTour(tour)}
@@ -63,32 +61,24 @@ export const TourCard: React.FC<TourCardProps> = ({
           alt={`${tour.title} - Photo ${currentImageIndex + 1}`}
           className="w-full h-full object-cover group-hover:scale-105 transition-all duration-500 opacity-90"
           loading="lazy"
+          decoding="async"
+          fetchPriority="low"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-black/30 pointer-events-none" />
 
-        {/* Popular / Tag Badge */}
-        {tour.popularTag && (
-          <span className="absolute top-3 left-3 bg-amber-500 text-slate-950 font-extrabold text-xs px-3 py-1 rounded-full shadow-md z-10">
-            {tour.popularTag}
-          </span>
-        )}
+        {/* Top Left: Offer Badge (or fallback Popular Tag) */}
+        <div className="absolute top-3 left-3 z-10 flex items-center gap-2">
+          {tour.discountPercentage || tour.offerTag ? (
+            <OfferBadge discountPercentage={tour.discountPercentage} offerTag={tour.offerTag} />
+          ) : tour.popularTag ? (
+            <span className="bg-amber-500 text-slate-950 font-extrabold text-xs px-3 py-1 rounded-full shadow-md z-10">
+              {tour.popularTag}
+            </span>
+          ) : null}
+        </div>
 
-        {/* Photo Gallery Counter Badge */}
+        {/* Photo Gallery Counter (Top Right) */}
         <div className="absolute top-3 right-3 flex items-center gap-1.5 z-10">
-          {onCompareTour && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onCompareTour(tour);
-              }}
-              className="flex items-center gap-1 text-slate-200 hover:text-white text-xs font-bold bg-slate-900/80 hover:bg-sky-600 backdrop-blur-sm px-2.5 py-1 rounded-lg border border-slate-700/50 transition shadow"
-              title="Compare with another tour"
-            >
-              <ArrowRightLeft className="w-3.5 h-3.5 text-amber-400" />
-              <span>Compare</span>
-            </button>
-          )}
-
           <div className="flex items-center gap-1 text-white text-[11px] font-bold bg-slate-900/85 backdrop-blur-md px-2.5 py-1 rounded-full border border-slate-700/60 shadow">
             <Camera className="w-3 h-3 text-sky-400" />
             <span>
@@ -203,16 +193,16 @@ export const TourCard: React.FC<TourCardProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 flex-1 max-w-[200px]">
             <button
               onClick={() => onSelectTour(tour)}
-              className="px-3 py-2 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-100 hover:text-slate-900 text-xs font-bold transition"
+              className="flex-1 h-10 px-3 py-2 rounded-xl bg-red-600 hover:bg-red-700 active:bg-red-800 text-white text-xs font-bold transition-all shadow-sm hover:shadow flex items-center justify-center whitespace-nowrap"
             >
-              Details
+              Tour Details
             </button>
             <button
               onClick={() => onQuickBook(tour)}
-              className="flex items-center gap-1 bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition shadow-sm hover:shadow"
+              className="flex-1 h-10 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-bold transition-all shadow-sm hover:shadow flex items-center justify-center whitespace-nowrap gap-1"
             >
               <span>Book Now</span>
               <ArrowRight className="w-3.5 h-3.5" />

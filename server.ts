@@ -1,29 +1,35 @@
-import express from "express";
-import path from "path";
-import { fileURLToPath } from "url";
+import express from 'express';
+import path from 'path';
+import { createServer as createViteServer } from 'vite';
+import { GoogleGenAI } from '@google/genai';
+import dotenv from 'dotenv';
+import { sendTwilioWhatsAppNotification } from './server/twilioService';
+import { 
+  createPaymentOrderHandler, 
+  verifyPaymentHandler, 
+  paymentWebhookHandler, 
+  getBookingStatusHandler 
+} from './server/paymentController';
+import adminAuthRoutes from './server/routes/adminAuthRoutes';
+import adminDataRoutes from './server/routes/adminDataRoutes';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+dotenv.config();
 
-const app = express();
-const distPath = path.join(__dirname, "dist");
+const getAppDirname = () => {
+  if (typeof __dirname !== 'undefined') {
+    return __dirname;
+  }
+  return process.cwd();
+};
 
-app.use(express.static(distPath));
-
-app.get("*", (_, res) => {
-  res.sendFile(path.join(distPath, "index.html"));
-});
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+const currentDir = getAppDirname();
 
 async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  app.use(express.json());
+  app.use(express.json({ limit: '50mb' }));
+  app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
   // Company details constant
   const COMPANY_DETAILS = {
@@ -31,6 +37,8 @@ async function startServer() {
     address: 'Rani Garden, Shastri Nagar, Geeta Colony, New Delhi, Delhi 110031',
     gstin: '19ACUPH2897Q2ZA',
     phone: '+91 99339 92786',
+    secondaryPhone: '+91 99329 99786',
+    officePhone: '+011 69296175',
     whatsapp: '+919933992786',
     website: 'www.zaaratravel.com',
     email: 'info@zaaratravel.com',
@@ -41,6 +49,16 @@ async function startServer() {
   app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', time: new Date().toISOString() });
   });
+
+  // Payment Gateway API Routes
+  app.post('/api/payment/create-order', createPaymentOrderHandler);
+  app.post('/api/payment/verify-payment', verifyPaymentHandler);
+  app.post('/api/payment/webhook', paymentWebhookHandler);
+  app.get('/api/payment/status/:bookingId', getBookingStatusHandler);
+
+  // Admin Authentication & Operations API Routes
+  app.use('/api/admin/auth', adminAuthRoutes);
+  app.use('/api/admin', adminDataRoutes);
 
   app.get('/api/company-info', (req, res) => {
     res.json(COMPANY_DETAILS);
@@ -104,7 +122,7 @@ async function startServer() {
         },
       });
 
-      const prompt = `You are the lead travel consultant for Zaara Travels (GSTIN: 19ACUPH2897Q2ZA, WhatsApp: +91 99339 92786, Address: Rani Garden, Shastri Nagar, Geeta Colony, New Delhi, Delhi 110031).
+      const prompt = `You are the lead travel consultant for Zaara Travels (GSTIN: 19ACUPH2897Q2ZA, Primary WhatsApp: +91 99339 92786, Secondary: +91 99329 99786, Office: +011 69296175, Address: Rani Garden, Shastri Nagar, Geeta Colony, New Delhi, Delhi 110031).
 Create a detailed, highly attractive, day-by-day customized travel itinerary for a guest visiting India.
 
 Guest Specifications:
@@ -268,7 +286,7 @@ Respond strictly in JSON format with the following structure:
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(__dirname, 'dist');
+    const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));

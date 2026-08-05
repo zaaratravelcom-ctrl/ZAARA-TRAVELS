@@ -32,7 +32,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onSearch, onOpenAIPlan
         {/* Top Badges */}
         <div className="flex flex-wrap items-center justify-center gap-2 text-xs">
           <span className="bg-sky-500/20 text-sky-300 border border-sky-500/30 font-bold px-3 py-1 rounded-full flex items-center gap-1.5">
-            <Award className="w-3.5 h-3.5 text-amber-400" /> Government Registered Operator
+            <Award className="w-3.5 h-3.5 text-amber-400" /> Authorized Travel Operator
           </span>
           <span className="bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold px-3 py-1 rounded-full flex items-center gap-1.5">
             <ShieldCheck className="w-3.5 h-3.5 text-amber-400" /> GSTIN: 19ACUPH2897Q2ZA

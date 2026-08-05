@@ -252,7 +252,7 @@ export const PickupTimePicker: React.FC<PickupTimePickerProps> = ({ value, onCha
 
           {/* Footer note */}
           <div className="pt-2 border-t border-slate-800 text-[11px] text-slate-400 flex items-center justify-between">
-            <span>📍 Doorstep Chauffeur Pick-up</span>
+            <span>📍 Doorstep Private Driver Pick-up</span>
             <span className="text-amber-400 font-semibold">Placard Arrival 10m Prior</span>
           </div>
         </div>

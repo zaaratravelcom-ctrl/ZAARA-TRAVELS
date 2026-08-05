@@ -21,6 +21,8 @@ export interface TourPackage {
   }[];
   included: string[];
   excluded: string[];
+  discountPercentage?: number;
+  offerTag?: string;
 }
 
 export interface TravelService {
@@ -38,11 +40,18 @@ export interface VehicleOption {
   name: string;
   category: string;
   passengers: string;
+  seatingCapacity: string;
+  acDetails: string;
   luggage: string;
   image: string;
   features: string[];
   idealFor: string;
   ratePerDayINR: number;
+  ratePerKmINR: number;
+  ratePerKmOneWayINR?: number;
+  ratePerKmRoundTripINR?: number;
+  discountPercentage?: number;
+  offerTag?: string;
 }
 
 export interface Testimonial {

@@ -165,6 +165,8 @@ export const DestinationHeroSlider: React.FC<DestinationHeroSliderProps> = ({ on
                 alt={item.title}
                 className="w-full h-full object-cover object-center transform transition-transform duration-10000 ease-out group-hover:scale-105"
                 loading={idx === 0 ? 'eager' : 'lazy'}
+                decoding="async"
+                fetchPriority={idx === 0 ? 'high' : 'low'}
               />
 
               {/* Gradient Overlays for High Legibility */}

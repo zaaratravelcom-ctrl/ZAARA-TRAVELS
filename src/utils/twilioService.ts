@@ -7,6 +7,7 @@ export interface TwilioBookingPayload {
   travelDate: string;
   pickupTime?: string;
   pickupLocation?: string;
+  guideLanguage?: string;
   vehicleType?: string;
   totalAmountINR: number;
   totalAmountUSD: number;
@@ -74,6 +75,7 @@ export async function triggerTwilioWhatsAppNotification(
 *Travel Date:* ${booking.travelDate}
 *Pickup Time:* ${booking.pickupTime || '06:00 AM'}
 *Pickup Location:* ${booking.pickupLocation || 'Delhi Hotel / Airport'}
+*Guide Language:* ${booking.guideLanguage || 'English'}
 *Vehicle Assigned:* ${booking.vehicleType || 'Private AC Vehicle'}
 
 *Total Amount:* ${formattedINR} (${formattedUSD} USD)

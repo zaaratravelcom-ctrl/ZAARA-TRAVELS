@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
-import { MessageSquare, Compass, MapPin, Calendar, Car, Sparkles, Menu, X, CheckCircle2 } from 'lucide-react';
+import { MessageSquare, Compass, MapPin, Calendar, Car, Sparkles, Menu, X, CheckCircle2, Phone, FileText, ShieldCheck, Lock } from 'lucide-react';
 import { ZaaraLogo } from './ZaaraLogo';
-import { CurrencyConverterWidget } from './CurrencyConverterWidget';
-import { CurrencyCode } from '../utils/currencyConverter';
+import { CurrencyCode, SUPPORTED_CURRENCIES } from '../utils/currencyConverter';
 
 interface HeaderProps {
   activeTab: string;
@@ -12,6 +11,9 @@ interface HeaderProps {
   rates: Record<CurrencyCode, number>;
   setRates: (rates: Record<CurrencyCode, number>) => void;
   onOpenAIPlanner: () => void;
+  onOpenLetterhead?: () => void;
+  onOpenAdminLogin?: () => void;
+  isAdminLoggedIn?: boolean;
   bookingsCount: number;
 }
 
@@ -23,6 +25,9 @@ export const Header: React.FC<HeaderProps> = ({
   rates,
   setRates,
   onOpenAIPlanner,
+  onOpenLetterhead,
+  onOpenAdminLogin,
+  isAdminLoggedIn = false,
   bookingsCount,
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -32,7 +37,7 @@ export const Header: React.FC<HeaderProps> = ({
     { id: 'packages', label: 'Tours' },
     { id: 'golden-triangle', label: 'Golden' },
     { id: 'same-day', label: 'Day Tours' },
-    { id: 'fleet', label: 'Cars' },
+    { id: 'fleet', label: 'Cab Rental' },
     { id: 'my-bookings', label: `Bookings${bookingsCount > 0 ? ` (${bookingsCount})` : ''}` },
     { id: 'contact', label: 'Contact' },
   ];
@@ -51,17 +56,49 @@ export const Header: React.FC<HeaderProps> = ({
           <div className="flex items-center gap-2 font-medium text-slate-300">
             <span className="text-amber-400 font-semibold flex items-center">Zaara Travels<sup className="text-[9px] font-bold text-amber-400 ml-0.5">®</sup></span>
             <span className="text-slate-600">•</span>
-            <span className="italic text-slate-300">"Your Journey, Our Passion."</span>
+            <span className="hidden sm:inline italic text-slate-300">"Your Journey, Our Passion."</span>
           </div>
 
-          <div className="flex items-center gap-3 shrink-0">
-            {/* Real-time Currency Converter Widget */}
-            <CurrencyConverterWidget
-              currentCurrency={currency}
-              onCurrencyChange={setCurrency}
-              rates={rates}
-              setRates={setRates}
-            />
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0 text-slate-300 font-semibold text-[11px] sm:text-xs">
+            {/* Currency Selector Dropdown */}
+            <div className="flex items-center gap-1 bg-slate-800 px-2 py-0.5 rounded border border-slate-700">
+              <span className="text-[10px] text-slate-400 uppercase font-bold hidden sm:inline">Currency:</span>
+              <select
+                value={currency}
+                onChange={(e) => setCurrency(e.target.value as CurrencyCode)}
+                className="bg-transparent text-amber-400 text-[11px] font-extrabold focus:outline-none cursor-pointer"
+                title="Select Currency"
+              >
+                {SUPPORTED_CURRENCIES.map((c) => (
+                  <option key={c.code} value={c.code} className="bg-slate-900 text-white font-medium">
+                    {c.flag} {c.code} ({c.symbol})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <a href="tel:+919933992786" className="flex items-center gap-1 hover:text-amber-400 transition" title="Primary Mobile & WhatsApp">
+              <Phone className="w-3 h-3 text-amber-400" />
+              <span>+91 99339 92786</span>
+            </a>
+            <span className="hidden md:inline text-slate-600">•</span>
+            <a href="tel:+01169296175" className="hidden lg:flex items-center gap-1 hover:text-amber-400 transition" title="Office Landline">
+              <span>+011 69296175</span>
+            </a>
+            {onOpenAdminLogin && (
+              <>
+                <span className="hidden md:inline text-slate-600">•</span>
+                <button
+                  type="button"
+                  onClick={onOpenAdminLogin}
+                  className="flex items-center gap-1 text-amber-300 hover:text-amber-200 transition font-bold bg-slate-800/90 hover:bg-slate-700 px-2 py-0.5 rounded border border-slate-700/80"
+                  title="Administrator Portal & Management Console"
+                >
+                  <ShieldCheck className="w-3 h-3 text-amber-400" />
+                  <span>{isAdminLoggedIn ? 'Admin Portal' : 'Admin Login'}</span>
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -95,14 +132,27 @@ export const Header: React.FC<HeaderProps> = ({
         </nav>
 
         {/* Action CTA Buttons */}
-        <div className="hidden xl:flex items-center gap-3">
-          <button
-            onClick={onOpenAIPlanner}
-            className="flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-amber-400 font-bold px-3 py-2 rounded-lg text-xs shadow-sm transition border border-amber-500/30"
-          >
-            <Sparkles className="w-3.5 h-3.5 fill-amber-400" />
-            <span>AI Planner</span>
-          </button>
+        <div className="hidden xl:flex items-center gap-2">
+          {onOpenAdminLogin && (
+            <button
+              onClick={onOpenAdminLogin}
+              className="flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-amber-300 font-bold px-3 py-2 rounded-lg text-xs transition border border-amber-500/30 shadow-sm"
+              title="Administrator Sign In"
+            >
+              <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
+              <span>{isAdminLoggedIn ? 'Admin' : 'Admin Login'}</span>
+            </button>
+          )}
+          {onOpenLetterhead && (
+            <button
+              onClick={onOpenLetterhead}
+              className="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold px-3 py-2 rounded-lg text-xs transition border border-slate-300 shadow-sm"
+              title="View & Generate Official Zaara Travels Letterhead"
+            >
+              <FileText className="w-3.5 h-3.5 text-sky-600" />
+              <span>Letterhead</span>
+            </button>
+          )}
           <button
             onClick={() => handleNavClick('contact')}
             className="flex items-center gap-1.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-slate-950 font-bold px-3.5 py-2 rounded-lg text-xs shadow-md transition hover:shadow-lg"
@@ -114,13 +164,6 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Mobile Hamburger Toggle */}
         <div className="flex lg:hidden items-center gap-2">
-          <button
-            onClick={onOpenAIPlanner}
-            className="flex items-center gap-1 bg-slate-900 text-amber-400 font-bold px-2.5 py-1.5 rounded text-xs border border-amber-500/30"
-          >
-            <Sparkles className="w-3.5 h-3.5 fill-amber-400" />
-            <span>AI Plan</span>
-          </button>
           <button
             onClick={() => handleNavClick('contact')}
             className="bg-amber-500 text-slate-950 font-bold px-2.5 py-1.5 rounded text-xs"
@@ -154,6 +197,18 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           ))}
           <div className="pt-3 border-t border-slate-800 space-y-2">
+            {onOpenAdminLogin && (
+              <button
+                onClick={() => {
+                  onOpenAdminLogin();
+                  setMobileMenuOpen(false);
+                }}
+                className="w-full flex items-center justify-center gap-2 bg-slate-800 text-amber-300 font-bold py-2.5 rounded-lg text-sm border border-amber-500/30"
+              >
+                <ShieldCheck className="w-4 h-4 text-amber-400" />
+                <span>{isAdminLoggedIn ? 'Admin Portal' : 'Admin Login'}</span>
+              </button>
+            )}
             <button
               onClick={() => {
                 handleNavClick('contact');
@@ -162,16 +217,6 @@ export const Header: React.FC<HeaderProps> = ({
             >
               <Calendar className="w-4 h-4" />
               <span>Book Now / Instant Inquiry</span>
-            </button>
-            <button
-              onClick={() => {
-                onOpenAIPlanner();
-                setMobileMenuOpen(false);
-              }}
-              className="w-full flex items-center justify-center gap-2 bg-slate-800 text-amber-400 font-bold py-2.5 rounded-lg text-sm border border-amber-500/30"
-            >
-              <Sparkles className="w-4 h-4 fill-amber-400" />
-              <span>Create AI Custom Tour</span>
             </button>
           </div>
         </div>

@@ -8,8 +8,8 @@ export interface CurrencyDetails {
 }
 
 export const SUPPORTED_CURRENCIES: CurrencyDetails[] = [
-  { code: 'INR', symbol: '₹', name: 'Indian Rupee', flag: '🇮🇳' },
   { code: 'USD', symbol: '$', name: 'US Dollar', flag: '🇺🇸' },
+  { code: 'INR', symbol: '₹', name: 'Indian Rupee', flag: '🇮🇳' },
   { code: 'EUR', symbol: '€', name: 'Euro', flag: '🇪🇺' },
   { code: 'GBP', symbol: '£', name: 'British Pound', flag: '🇬🇧' },
   { code: 'JPY', symbol: '¥', name: 'Japanese Yen', flag: '🇯🇵' },
@@ -64,24 +64,30 @@ export async function fetchLiveExchangeRates(): Promise<{ rates: Record<Currency
   };
 }
 
+export function getCurrencyLabel(currency: CurrencyCode): string {
+  const details = SUPPORTED_CURRENCIES.find((c) => c.code === currency);
+  if (!details) return currency;
+  return `${details.code} (${details.symbol})`;
+}
+
 export function formatConvertedPrice(
   usdPrice: number,
   inrPrice: number,
   currency: CurrencyCode,
-  rates: Record<CurrencyCode, number> = FALLBACK_RATES_FROM_USD
+  rates: Record<CurrencyCode, number> = FALLBACK_RATES_FROM_USD,
+  includeCode: boolean = true
 ): string {
   if (currency === 'INR') {
-    return `₹${inrPrice.toLocaleString('en-IN')}`;
+    const formatted = `₹${inrPrice.toLocaleString('en-IN')}`;
+    return includeCode ? `${formatted} INR` : formatted;
   }
 
   const rate = rates[currency] || FALLBACK_RATES_FROM_USD[currency] || 1.0;
   const convertedAmount = usdPrice * rate;
 
-  const details = SUPPORTED_CURRENCIES.find((c) => c.code === currency) || { symbol: currency };
+  const details = SUPPORTED_CURRENCIES.find((c) => c.code === currency) || { symbol: currency, code: currency };
 
-  if (currency === 'JPY') {
-    return `${details.symbol}${Math.round(convertedAmount).toLocaleString()}`;
-  }
-
-  return `${details.symbol}${Math.round(convertedAmount).toLocaleString()}`;
+  const formattedNum = Math.round(convertedAmount).toLocaleString();
+  const formatted = `${details.symbol}${formattedNum}`;
+  return includeCode ? `${formatted} ${currency}` : formatted;
 }

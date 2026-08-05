@@ -7,16 +7,22 @@ export interface BookingVoucherData {
   travelDate: string;
   pickupTime?: string;
   pickupLocation?: string;
+  dropLocation?: string;
+  guideLanguage?: string;
   travelers: {
     adults: number;
     children: number;
   };
   vehicleType: string;
   hotelOption?: string;
+  baseAmountINR?: number;
+  gstAmountINR?: number;
+  baseAmountUSD?: number;
+  gstAmountUSD?: number;
   totalAmountINR: number;
   totalAmountUSD: number;
   paymentMethod: string;
-  paymentStatus: 'PAID IN FULL' | 'DEPOSIT CONFIRMED' | 'PAY ON ARRIVAL';
+  paymentStatus: string;
   bookingDate: string;
   specialRequests?: string;
 }
@@ -33,219 +39,339 @@ export function openPrintableVoucher(data: BookingVoucherData) {
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Booking Voucher - ${data.bookingId} - Zaara Travels</title>
+  <title>Official Booking Voucher - ${data.bookingId} - Zaara Travels</title>
   <style>
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       margin: 0;
-      padding: 30px;
-      color: #1a202c;
-      background-color: #f7fafc;
+      padding: 20px;
+      color: #0f172a;
+      background-color: #f1f5f9;
     }
     .voucher-card {
-      max-width: 800px;
+      max-width: 820px;
       margin: 0 auto;
       background: #ffffff;
-      border-radius: 12px;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.08);
-      border: 1px solid #e2e8f0;
-      padding: 32px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+      border: 1px solid #cbd5e1;
+      overflow: hidden;
       position: relative;
     }
-    .header {
+    /* Official Letterhead Header Styling */
+    .top-wave-bar {
+      height: 6px;
+      background: #0b1736;
+      border-bottom: 2px solid #d97706;
+    }
+    .letterhead-header {
+      padding: 16px 24px 12px 24px;
       display: flex;
       justify-content: space-between;
-      align-items: flex-start;
-      border-bottom: 2px solid #edf2f7;
-      padding-bottom: 20px;
-      margin-bottom: 24px;
+      align-items: center;
+      background: #ffffff;
     }
-    .brand-title {
-      font-size: 28px;
+    .brand-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .brand-title-group {
+      line-height: 1.1;
+    }
+    .brand-zaara {
+      font-size: 26px;
+      font-weight: 900;
+      color: #1d4ed8;
+      letter-spacing: -0.5px;
+    }
+    .brand-travels {
+      font-size: 18px;
+      font-weight: 800;
+      color: #dc2626;
+      margin-left: 2px;
+    }
+    .brand-url {
+      font-size: 11px;
+      font-weight: 700;
+      color: #1d4ed8;
+      margin-top: 3px;
+    }
+    .brand-center {
+      text-align: left;
+      border-left: 2px solid #cbd5e1;
+      padding-left: 16px;
+    }
+    .company-title {
+      font-size: 15px;
+      font-weight: 900;
+      color: #1d4ed8;
+    }
+    .company-title span {
+      color: #dc2626;
+    }
+    .md-name {
+      font-size: 12px;
+      font-weight: 700;
+      color: #1e293b;
+      margin-top: 2px;
+    }
+    .gstin-no {
+      font-size: 11px;
+      font-weight: 800;
+      color: #d97706;
+      margin-top: 2px;
+    }
+    .brand-right {
+      text-align: right;
+      font-size: 11px;
+      font-weight: 700;
+      color: #0f172a;
+      line-height: 1.5;
+    }
+    /* Dark Navy Address Ribbon Bar */
+    .address-bar {
+      background: #0b1736;
+      color: #ffffff;
+      font-size: 11px;
+      font-weight: 700;
+      text-align: center;
+      padding: 6px 12px;
+      margin: 0 24px 16px 24px;
+      border-radius: 4px;
+    }
+
+    .doc-banner {
+      margin: 0 24px 16px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid #e2e8f0;
+      padding-bottom: 12px;
+    }
+    .doc-title {
+      font-size: 18px;
       font-weight: 800;
       color: #0f172a;
-      letter-spacing: -0.5px;
       margin: 0;
     }
-    .brand-sub {
-      font-size: 13px;
-      color: #0284c7;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      margin-top: 4px;
-    }
-    .gst-badge {
-      font-size: 11px;
-      background: #e0f2fe;
-      color: #0369a1;
-      padding: 4px 8px;
-      border-radius: 4px;
-      display: inline-block;
-      margin-top: 6px;
-      font-weight: 600;
-    }
-    .voucher-status {
-      text-align: right;
+    .doc-sub {
+      font-size: 12px;
+      color: #64748b;
+      margin-top: 2px;
     }
     .ref-no {
-      font-size: 20px;
-      font-weight: 700;
-      color: #0369a1;
-      margin: 0;
+      font-size: 18px;
+      font-weight: 800;
+      color: #0284c7;
     }
     .status-pill {
       display: inline-block;
-      margin-top: 6px;
-      padding: 6px 14px;
+      margin-top: 4px;
+      padding: 4px 12px;
       background-color: #dcfce7;
       color: #15803d;
-      font-size: 12px;
-      font-weight: 700;
+      font-size: 11px;
+      font-weight: 800;
       border-radius: 20px;
       text-transform: uppercase;
     }
+
     .section-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 20px;
-      margin-bottom: 24px;
+      gap: 16px;
+      margin: 0 24px 16px 24px;
     }
     .box {
       background: #f8fafc;
       border: 1px solid #e2e8f0;
-      padding: 16px;
-      border-radius: 8px;
+      padding: 14px;
+      border-radius: 6px;
     }
     .box-title {
-      font-size: 12px;
+      font-size: 11px;
       text-transform: uppercase;
       letter-spacing: 0.5px;
-      color: #64748b;
-      font-weight: 700;
-      margin-bottom: 8px;
+      color: #0b1736;
+      font-weight: 800;
+      margin-bottom: 6px;
+      border-bottom: 1px solid #cbd5e1;
+      padding-bottom: 4px;
     }
     .box-content {
-      font-size: 14px;
+      font-size: 12.5px;
       color: #0f172a;
-      line-height: 1.6;
+      line-height: 1.5;
     }
-    .tour-banner {
-      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-      color: white;
-      padding: 20px;
-      border-radius: 8px;
-      margin-bottom: 24px;
-    }
-    .tour-title {
-      font-size: 20px;
-      font-weight: 700;
-      margin: 0 0 8px 0;
-      color: #38bdf8;
-    }
-    .tour-meta {
-      display: flex;
-      gap: 20px;
-      font-size: 13px;
-      color: #cbd5e1;
-    }
+
     .price-table {
-      width: 100%;
+      width: calc(100% - 48px);
+      margin: 0 24px 16px 24px;
       border-collapse: collapse;
-      margin-bottom: 24px;
     }
     .price-table th, .price-table td {
-      padding: 12px;
+      padding: 10px 12px;
       text-align: left;
-      border-bottom: 1px solid #e2e8f0;
-      font-size: 14px;
+      border: 1px solid #cbd5e1;
+      font-size: 12px;
     }
     .price-table th {
-      background: #f1f5f9;
-      color: #475569;
+      background: #0b1736;
+      color: #ffffff;
       font-weight: 700;
     }
-    .footer-notes {
-      border-top: 1px dashed #cbd5e1;
-      padding-top: 20px;
-      font-size: 12px;
-      color: #64748b;
-      line-height: 1.6;
-    }
-    .owner-sign {
+
+    .letterhead-footer {
+      margin: 16px 24px 20px 24px;
+      border: 1px solid #cbd5e1;
+      background: #f8fafc;
+      border-radius: 6px;
+      padding: 14px;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-top: 24px;
-      padding-top: 16px;
-      border-top: 1px solid #edf2f7;
     }
+    .seal-block {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .seal-circle {
+      width: 60px;
+      height: 60px;
+      border: 3px double #0284c7;
+      border-radius: 50%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-size: 8px;
+      font-weight: 800;
+      color: #0f172a;
+      text-align: center;
+      line-height: 1.1;
+      background: #ffffff;
+    }
+    .office-info {
+      font-size: 10.5px;
+      color: #334155;
+      line-height: 1.4;
+    }
+
+    .sign-block {
+      text-align: right;
+    }
+    .sign-title {
+      font-size: 14px;
+      font-weight: 800;
+      color: #0f172a;
+      border-top: 1px solid #0f172a;
+      padding-top: 4px;
+      margin-top: 20px;
+    }
+    .sign-sub {
+      font-size: 10px;
+      font-weight: 700;
+      color: #0284c7;
+    }
+
+    .bottom-tagline {
+      text-align: center;
+      font-style: italic;
+      color: #d97706;
+      font-weight: 700;
+      font-size: 12px;
+      padding: 8px 0;
+      border-top: 1px solid #cbd5e1;
+    }
+
     .btn-print {
-      background: #0284c7;
-      color: white;
-      border: none;
-      padding: 12px 24px;
+      background: #0b1736;
+      color: #fbbf24;
+      border: 1px solid #d97706;
+      padding: 12px 28px;
       border-radius: 6px;
       font-size: 14px;
-      font-weight: 700;
+      font-weight: 800;
       cursor: pointer;
       margin-bottom: 20px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
     }
     @media print {
       .btn-print { display: none; }
       body { background: white; padding: 0; }
-      .voucher-card { box-shadow: none; border: none; }
+      .voucher-card { box-shadow: none; border: none; width: 100%; max-width: 100%; }
     }
   </style>
 </head>
 <body>
   <div style="text-align: center;">
-    <button class="btn-print" onclick="window.print()">🖨️ Print / Save as PDF Voucher</button>
+    <button class="btn-print" onclick="window.print()">🖨️ Print/Save</button>
   </div>
 
   <div class="voucher-card">
-    <div class="header">
-      <div>
-        <h1 class="brand-title">ZAARA TRAVELS</h1>
-        <div class="brand-sub">Your Journey, Our Passion.</div>
-        <div class="gst-badge">GSTIN: 19ACUPH2897Q2ZA | Govt Reg. Tour Operator</div>
+    <!-- Top Sweeping Wave Bar -->
+    <div class="top-wave-bar"></div>
+
+    <!-- Official Letterhead Header -->
+    <div class="letterhead-header">
+      <div class="brand-left">
+        <div class="brand-title-group">
+          <div><span class="brand-zaara">Zaara</span> <span class="brand-travels">Travels® 🚘</span></div>
+          <div class="brand-url">www.zaaratravel.com</div>
+        </div>
       </div>
-      <div class="voucher-status">
-        <div class="ref-no">${data.bookingId}</div>
-        <div class="status-pill">${data.paymentStatus}</div>
-        <div style="font-size: 12px; color: #64748b; margin-top: 4px;">Booked on ${data.bookingDate}</div>
+
+      <div class="brand-center">
+        <div class="company-title">ZAARA <span>TRAVELS</span></div>
+        <div class="md-name">MD Jahangir Khan</div>
+        <div class="gstin-no">GSTIN No. 19ACUPH2897Q2ZA</div>
+      </div>
+
+      <div class="brand-right">
+        <div>📱 Mobile: +91 9933992786</div>
+        <div>🌐 Website: www.zaaratravel.com</div>
+        <div>✉️ Email: info@zaaratravel.com</div>
       </div>
     </div>
 
-    <div class="tour-banner">
-      <h2 class="tour-title">${data.tourTitle}</h2>
-      <div class="tour-meta">
-        <div>📅 <strong>Travel Date:</strong> ${data.travelDate}</div>
-        ${data.pickupTime ? `<div>⏰ <strong>Pickup Time:</strong> ${data.pickupTime}</div>` : ''}
-        <div>👥 <strong>Travelers:</strong> ${data.travelers.adults} Adults, ${data.travelers.children} Children</div>
-        <div>🚗 <strong>Vehicle:</strong> ${data.vehicleType}</div>
+    <!-- Dark Navy Address Ribbon Bar -->
+    <div class="address-bar">
+      📍 Address: Rani Garden, Shastri Nagar, Geeta Colony, New Delhi, Delhi, 110031
+    </div>
+
+    <!-- Document Title & Status Banner -->
+    <div class="doc-banner">
+      <div>
+        <h2 class="doc-title">BOOKING CONFIRMATION VOUCHER</h2>
+        <div class="doc-sub">Official Private Transport & Travel Access Document</div>
+      </div>
+      <div style="text-align: right;">
+        <div class="ref-no">${data.bookingId}</div>
+        <div class="status-pill">Status: ${data.paymentStatus} ✓</div>
       </div>
     </div>
 
     <div class="section-grid">
       <div class="box">
-        <div class="box-title">Guest & Pickup Details</div>
+        <div class="box-title">Booking & Customer Details</div>
         <div class="box-content">
-          <strong>${data.guestName}</strong><br>
-          📞 Phone: ${data.guestPhone}<br>
-          ✉️ Email: ${data.guestEmail}<br>
-          ${data.pickupLocation ? `📍 <strong>Pickup Point:</strong> ${data.pickupLocation}<br>` : ''}
-          ${data.specialRequests ? `📝 Note: ${data.specialRequests}` : ''}
+          <strong>Ref No:</strong> ${data.bookingId}<br>
+          📅 <strong>Booking Date:</strong> ${data.bookingDate || 'Recent Confirmation'}<br>
+          👤 <strong>Customer Name:</strong> ${data.guestName}<br>
+          📱 <strong>Contact Details:</strong> ${data.guestPhone} | ${data.guestEmail}<br>
+          👥 <strong>Guests:</strong> ${data.travelers.adults} Adults, ${data.travelers.children} Children
         </div>
       </div>
 
       <div class="box">
-        <div class="box-title">Office Address & Helpline</div>
+        <div class="box-title">Service & Route Details</div>
         <div class="box-content">
-          <strong>Zaara Travels Head Office</strong><br>
-          Address: Rani Garden, Shastri Nagar, Geeta Colony, New Delhi, Delhi 110031.<br>
-          📱 WhatsApp / Phone: <strong>+91 99339 92786</strong><br>
-          🌐 Website: www.zaaratravel.com | info@zaaratravel.com
+          🏷️ <strong>Service / Tour:</strong> ${data.tourTitle}<br>
+          📅 <strong>Travel Date:</strong> ${data.travelDate}<br>
+          📍 <strong>Pickup Details:</strong> ${data.pickupLocation || 'Hotel / Airport'} (${data.pickupTime || '06:00 AM'})<br>
+          🚩 <strong>Drop Details:</strong> ${data.dropLocation || 'Hotel / Airport Destination'}<br>
+          🚘 <strong>Vehicle Allocated:</strong> ${data.vehicleType}
         </div>
       </div>
     </div>
@@ -253,31 +379,25 @@ export function openPrintableVoucher(data: BookingVoucherData) {
     <table class="price-table">
       <thead>
         <tr>
-          <th>Service Item</th>
-          <th>Details</th>
-          <th style="text-align: right;">Amount</th>
+          <th>Payment Component</th>
+          <th>Details & GST Rate</th>
+          <th style="text-align: right;">Amount (INR / USD)</th>
         </tr>
       </thead>
       <tbody>
         <tr>
-          <td>Private Tour Package</td>
-          <td>${data.tourTitle} (${data.travelers.adults} Adults)</td>
-          <td style="text-align: right;">₹${data.totalAmountINR.toLocaleString('en-IN')}</td>
+          <td><strong>Base Amount</strong></td>
+          <td>${data.tourTitle} • ${data.vehicleType} Base Fare</td>
+          <td style="text-align: right;"><strong>₹${(data.baseAmountINR ?? Math.round(data.totalAmountINR / 1.05)).toLocaleString('en-IN')}</strong> (~$${data.baseAmountUSD ?? Math.round(data.totalAmountUSD / 1.05)})</td>
         </tr>
         <tr>
-          <td>Private Transport & Driver</td>
-          <td>${data.vehicleType} (Fuel, Tolls, Permits & Driver Allowance Included)</td>
-          <td style="text-align: right;">Included</td>
+          <td><strong>Goods & Services Tax (GST @ 5%)</strong></td>
+          <td>Govt Goods & Services Tax (GSTIN: 19ACUPH2897Q2ZA)</td>
+          <td style="text-align: right; color: #b45309;"><strong>₹${(data.gstAmountINR ?? (data.totalAmountINR - Math.round(data.totalAmountINR / 1.05))).toLocaleString('en-IN')}</strong> (~$${data.gstAmountUSD ?? (data.totalAmountUSD - Math.round(data.totalAmountUSD / 1.05))})</td>
         </tr>
-        ${data.hotelOption ? `
-        <tr>
-          <td>Hotel Accommodation</td>
-          <td>${data.hotelOption}</td>
-          <td style="text-align: right;">Included</td>
-        </tr>` : ''}
-        <tr style="font-weight: 700; font-size: 16px; background: #f8fafc;">
-          <td colspan="2">Total Paid / Payable (${data.paymentMethod}):</td>
-          <td style="text-align: right; color: #0369a1;">₹${data.totalAmountINR.toLocaleString('en-IN')} (~$${data.totalAmountUSD} USD)</td>
+        <tr style="font-weight: 800; background: #f8fafc; font-size: 13px;">
+          <td colspan="2" style="color: #0f172a;">Total Amount Payable (${data.paymentMethod}):</td>
+          <td style="text-align: right; color: #0284c7; font-size: 14px;">₹${data.totalAmountINR.toLocaleString('en-IN')} (~$${data.totalAmountUSD} USD)</td>
         </tr>
       </tbody>
     </table>
@@ -285,33 +405,45 @@ export function openPrintableVoucher(data: BookingVoucherData) {
     <div class="section-grid">
       <div class="box">
         <div class="box-title">Important Driver Instructions</div>
-        <div class="box-content" style="font-size: 12px;">
-          • Driver details & vehicle number will be dispatched via WhatsApp 12 hours before pickup.<br>
-          • Punctual hotel / airport pickup at your requested time.<br>
-          • All parking, interstate taxes & toll fees are prepaid by Zaara Travels.
+        <div class="box-content" style="font-size: 11.5px;">
+          • Driver details & vehicle registration number dispatched via WhatsApp 12h prior.<br>
+          • Punctual hotel / airport pickup guaranteed.<br>
+          • All parking fees, interstate toll taxes & state permits are 100% prepaid.
         </div>
       </div>
       <div class="box">
-        <div class="box-title">Emergency Contact & Admin Processing 24/7</div>
-        <div class="box-content" style="font-size: 12px;">
-          Direct Line & WhatsApp: <strong>+91 99339 92786</strong><br>
-          Official Email: <strong>info@zaaratravel.com</strong><br>
-          <span style="color: #0284c7; font-weight: 600;">✓ Auto-Transmitted to Admin for Instant Driver & Hotel Processing</span>
+        <div class="box-title">24/7 Helpline & Dispatch Desk</div>
+        <div class="box-content" style="font-size: 11.5px;">
+          WhatsApp / Primary: <strong>+91 99339 92786</strong> | Secondary: <strong>+91 99329 99786</strong><br>
+          Office Landline: <strong>+011 69296175</strong> | Email: <strong>info@zaaratravel.com</strong>
         </div>
       </div>
     </div>
 
-    <div class="owner-sign">
-      <div>
-        <div style="font-size: 12px; color: #64748b;">Authorized Signatory</div>
-        <div style="font-size: 16px; font-weight: 800; color: #0f172a; margin-top: 4px;">MD Jahangir Khan</div>
-        <div style="font-size: 12px; color: #0284c7;">Managing Director & Authorized Signatory</div>
-      </div>
-      <div style="text-align: right;">
-        <div style="font-family: monospace; font-size: 10px; background: #f1f5f9; padding: 6px 12px; border-radius: 4px;">
-          VERIFIED OFFICIAL VOUCHER | GSTIN: 19ACUPH2897Q2ZA
+    <!-- Letterhead Footer Authorization Block -->
+    <div class="letterhead-footer">
+      <div class="seal-block">
+        <div class="seal-circle">
+          <div>ZAARA</div>
+          <div style="color: #d97706;">★ SEAL ★</div>
+          <div style="font-size: 6px;">GOVT REG.</div>
+        </div>
+        <div class="office-info">
+          <strong>ZAARA TRAVELS HEAD OFFICE</strong><br>
+          Address: Rani Garden, Shastri Nagar, Geeta Colony, New Delhi 110031.<br>
+          Govt. Registered Tour Operator • GSTIN: 19ACUPH2897Q2ZA
         </div>
       </div>
+
+      <div class="sign-block">
+        <div class="sign-title">MD Jahangir Khan</div>
+        <div class="sign-sub">Managing Director & Authorized Signatory</div>
+      </div>
+    </div>
+
+    <!-- Bottom Tagline -->
+    <div class="bottom-tagline">
+      — Your Journey, Our Passion. —
     </div>
   </div>
 </body>
